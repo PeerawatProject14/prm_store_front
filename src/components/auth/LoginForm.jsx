@@ -1,0 +1,91 @@
+import { useState } from "react";
+import Input from "@/components/auth/Input";
+import Button from "@/components/auth/Button";
+import { loginUser } from "@/services/auth";
+import { useAuth } from "@/context/AuthContext";
+import Link from "next/link";
+
+export default function LoginForm() {
+  const { setToken } = useAuth();
+  const [form, setForm] = useState({ email: "", password: "" });
+  const [error, setError] = useState("");
+
+  const handleChange = (e) =>
+    setForm({ ...form, [e.target.name]: e.target.value });
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+
+    try {
+      const result = await loginUser(form);
+
+      if (result?.token) {
+        setToken(result.token);
+        
+        // ⭐ เพิ่มบรรทัดนี้ครับ: บันทึกข้อมูล user ลงเครื่อง
+        // เพื่อให้หน้าอื่นดึงไปเช็ค role ได้
+        if (result.user) {
+           localStorage.setItem("user", JSON.stringify(result.user));
+        }
+
+        window.location.href = "/dashboard";
+      }
+    } catch (err) {
+      setError(err.message || "เกิดข้อผิดพลาด กรุณาลองใหม่");
+    }
+  };
+
+  return (
+    // Card สไตล์ IG: ขอบบาง เงาจางๆ
+    <div className="bg-white border border-gray-200 shadow-sm rounded-lg p-10 w-full max-w-sm mx-auto">
+      {/* Header แบบเรียบหรู (หรือจะใช้ Gradient เดิมก็ได้ แต่ IG มักจะคลีนๆ) */}
+      <h1 className="text-3xl font-semibold text-center text-gray-800 mb-8 font-sans tracking-tight">
+        Sign in
+      </h1>
+
+      {error && (
+        <div className="mb-5 p-3 rounded bg-red-50 border border-red-100 text-red-600 text-sm text-center">
+          {error}
+        </div>
+      )}
+
+      <form className="space-y-4" onSubmit={handleSubmit}>
+        <Input
+          label="Email"
+          name="email"
+          type="email"
+          value={form.email}
+          onChange={handleChange}
+          placeholder="Phone number, username, or email"
+        />
+
+        <Input
+          label="Password"
+          name="password"
+          type="password"
+          value={form.password}
+          onChange={handleChange}
+          placeholder="Password"
+        />
+
+        <div className="pt-2">
+            <Button type="submit" text="Log in" full />
+        </div>
+      </form>
+
+      <div className="flex items-center my-6">
+        <div className="flex-1 border-t border-gray-200"></div>
+        <div className="px-4 text-xs font-bold text-gray-400 uppercase">OR</div>
+        <div className="flex-1 border-t border-gray-200"></div>
+      </div>
+
+      <p className="text-center text-sm text-gray-600">
+        ยังไม่มีบัญชี?{" "}
+        <Link href="/auth/register" className="text-[#0095F6] font-semibold hover:text-blue-700">
+          Sign up
+        </Link>
+      </p>
+    </div>
+  );
+}
