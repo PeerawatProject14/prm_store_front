@@ -82,7 +82,7 @@ export const fetchUserProfile = async () => {
   // วิธีที่ 2: ถ้าไม่มีใน LocalStorage ให้เรียก API ไปถาม Backend
   // ⚠️ หมายเหตุ: คุณต้องมี Route "/auth/me" หรือ "/profile" ที่ Backend
   try {
-    const res = await api.get("/auth/me"); 
+    const res = await api.get("/auth/me");
     return res.data;
   } catch (error) {
     console.warn("Cannot fetch user profile from API", error);
@@ -192,4 +192,67 @@ export const isModuleEnabled = async (code) => {
   const modules = await fetchModules();
   const mod = modules.find((m) => m.code === code);
   return !!mod && !!mod.is_enabled;
+};
+
+// Room Booking APIs
+export const getRooms = async () => {
+  const res = await api.get("/room");
+  return res.data;
+};
+
+export const getAllBookings = async () => {
+  const res = await api.get("/booking");
+  return res.data;
+};
+
+export const createBooking = async (data) => {
+  const res = await api.post("/booking", data);
+  return res.data;
+};
+
+export const updateBookingStatus = async (id, status) => {
+  const res = await api.patch(`/booking/${id}/status`, { status });
+  return res.data;
+};
+
+export const cancelBooking = async (id) => {
+  const res = await api.patch(`/booking/${id}/cancel`);
+  return res.data;
+};
+
+export const createRoom = async (data) => {
+  const res = await api.post("/room", data);
+  return res.data;
+};
+
+export const updateRoomStatus = async (id, status) => {
+  // Backend expects room_status_code
+  const res = await api.patch(`/room/${id}/status`, { room_status_code: status });
+  return res.data;
+};
+
+// 1. ฟังก์ชันลบห้อง (แก้ Error ที่ขึ้นอยู่ตอนนี้)
+export const deleteRoom = async (id) => {
+  // ยิงไป Backend หลัก (Node.js/Express)
+  // สมมติว่า Backend คุณรับ DELETE /room/:id
+  const res = await api.delete(`/room/${id}`);
+  return res.data;
+};
+
+// 2. ฟังก์ชันอัปโหลดรูป (เรียกใช้ API ของ Next.js ที่เราเพิ่งสร้าง)
+export const uploadImage = async (file) => {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  // ยิงไปหา Frontend Server (Next.js API) ที่ pages/api/upload.js
+  const response = await fetch('/api/upload', {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!response.ok) {
+    throw new Error('Client-side upload failed');
+  }
+
+  return response.json();
 };

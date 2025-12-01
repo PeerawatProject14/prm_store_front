@@ -1,154 +1,154 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 
-const AdminView = ({ bookings, rooms, onApprove, onReject, onAddRoom, onToggleRoomStatus }) => {
+// เพิ่ม prop: onDeleteRoom
+const AdminView = ({ bookings, rooms, onApprove, onReject, onAddRoom, onToggleRoomStatus, onDeleteRoom }) => {
     const [activeTab, setActiveTab] = useState("pending");
-    const [viewMode, setViewMode] = useState("bookings"); // 'bookings' or 'rooms'
+    const [viewMode, setViewMode] = useState("bookings");
     const [isAddRoomModalOpen, setIsAddRoomModalOpen] = useState(false);
+    const [isProcessingImg, setIsProcessingImg] = useState(false); // สถานะกำลังแปลงไฟล์
 
-    // Form State
     const [newRoom, setNewRoom] = useState({
         name: "",
         floor: "",
         capacity: "",
-        type: "Meeting",
         amenities: "",
-        pricePerHour: "",
-        image: ""
+        imageFile: null, // เก็บไฟล์ Blob ที่แปลงแล้ว
+        imagePreview: "" // เก็บ URL ไว้แสดงตัวอย่าง
     });
+
+    const fileInputRef = useRef(null);
 
     const filteredBookings = bookings.filter(b => b.status === activeTab);
 
-    const getRoomName = (roomId) => {
-        return rooms.find(r => r.id === roomId)?.name || roomId;
-    };
+    const getRoomName = (roomId) => rooms.find(r => r.id === roomId)?.name || roomId;
 
     const formatDate = (dateStr) => {
         return new Date(dateStr).toLocaleDateString("en-US", {
-            weekday: "short",
-            month: "short",
-            day: "numeric",
-            year: "numeric"
+            weekday: "short", month: "short", day: "numeric", year: "numeric"
         });
     };
 
-    const handleAddRoomSubmit = (e) => {
+    // --- ฟังก์ชันแปลงรูปเป็น WebP ---
+    const processImage = (file) => {
+        return new Promise((resolve, reject) => {
+            if (!file) return resolve(null);
+
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = (event) => {
+                const img = new Image();
+                img.src = event.target.result;
+                img.onload = () => {
+                    const canvas = document.createElement("canvas");
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    const ctx = canvas.getContext("2d");
+                    ctx.drawImage(img, 0, 0);
+
+                    // แปลงเป็น WebP คุณภาพ 0.8
+                    canvas.toBlob((blob) => {
+                        if (blob) {
+                            // สร้าง File Object ใหม่ที่เป็น .webp
+                            const webpFile = new File([blob], file.name.replace(/\.[^/.]+$/, "") + ".webp", {
+                                type: "image/webp"
+                            });
+                            resolve({
+                                file: webpFile,
+                                preview: URL.createObjectURL(blob)
+                            });
+                        } else {
+                            reject(new Error("Conversion failed"));
+                        }
+                    }, "image/webp", 0.8);
+                };
+            };
+            reader.onerror = (error) => reject(error);
+        });
+    };
+
+    const handleImageChange = async (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            setIsProcessingImg(true);
+            try {
+                const processed = await processImage(file);
+                setNewRoom(prev => ({
+                    ...prev,
+                    imageFile: processed.file,
+                    imagePreview: processed.preview
+                }));
+            } catch (error) {
+                console.error("Error converting image", error);
+                alert("Error processing image");
+            } finally {
+                setIsProcessingImg(false);
+            }
+        }
+    };
+
+    const handleAddRoomSubmit = async (e) => {
         e.preventDefault();
+
+        // ส่งข้อมูลกลับไป (ใน format ที่พร้อมส่งให้ API)
         onAddRoom({
             ...newRoom,
             capacity: parseInt(newRoom.capacity),
-            pricePerHour: parseInt(newRoom.pricePerHour),
-            amenities: newRoom.amenities.split(",").map(item => item.trim())
+            amenities: newRoom.amenities.split(",").map(item => item.trim()),
+            // imageFile จะถูกส่งไปให้ Parent จัดการ upload ลง server
+            imageFile: newRoom.imageFile
         });
+
         setIsAddRoomModalOpen(false);
         setNewRoom({
-            name: "",
-            floor: "",
-            capacity: "",
-            type: "Meeting",
-            amenities: "",
-            pricePerHour: "",
-            image: ""
+            name: "", floor: "", capacity: "", amenities: "", imageFile: null, imagePreview: ""
         });
     };
 
     return (
         <div className="flex-1 flex flex-col min-h-0 overflow-y-auto bg-slate-50 p-4 md:p-8">
             <div className="max-w-5xl mx-auto w-full">
+                {/* Header Section ... (เหมือนเดิม) */}
                 <div className="flex items-center justify-between mb-6">
                     <h1 className="text-2xl font-bold text-slate-800">Admin Dashboard</h1>
                     <div className="flex bg-slate-200 p-1 rounded-lg">
-                        <button
-                            onClick={() => setViewMode("bookings")}
-                            className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${viewMode === "bookings" ? "bg-white shadow-sm text-slate-800" : "text-slate-600 hover:text-slate-800"}`}
-                        >
-                            Bookings
-                        </button>
-                        <button
-                            onClick={() => setViewMode("rooms")}
-                            className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${viewMode === "rooms" ? "bg-white shadow-sm text-slate-800" : "text-slate-600 hover:text-slate-800"}`}
-                        >
-                            Rooms
-                        </button>
+                        <button onClick={() => setViewMode("bookings")} className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${viewMode === "bookings" ? "bg-white shadow-sm text-slate-800" : "text-slate-600 hover:text-slate-800"}`}>Bookings</button>
+                        <button onClick={() => setViewMode("rooms")} className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${viewMode === "rooms" ? "bg-white shadow-sm text-slate-800" : "text-slate-600 hover:text-slate-800"}`}>Rooms</button>
                     </div>
                 </div>
 
                 {viewMode === "bookings" ? (
+                    // ... (ส่วน Booking เหมือนเดิม ไม่ได้แก้) ...
                     <>
-                        {/* Tabs */}
                         <div className="flex space-x-1 bg-slate-200/50 p-1 rounded-lg mb-6 w-fit">
                             {["pending", "confirmed", "cancelled"].map((tab) => (
-                                <button
-                                    key={tab}
-                                    onClick={() => setActiveTab(tab)}
-                                    className={`px-4 py-2 rounded-md text-sm font-medium capitalize transition-all ${activeTab === tab
-                                        ? "bg-white text-slate-800 shadow-sm"
-                                        : "text-slate-500 hover:text-slate-700 hover:bg-white/50"
-                                        }`}
-                                >
+                                <button key={tab} onClick={() => setActiveTab(tab)} className={`px-4 py-2 rounded-md text-sm font-medium capitalize transition-all ${activeTab === tab ? "bg-white text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700 hover:bg-white/50"}`}>
                                     {tab} ({bookings.filter(b => b.status === tab).length})
                                 </button>
                             ))}
                         </div>
-
-                        {/* Booking List */}
                         <div className="space-y-4">
                             {filteredBookings.length === 0 ? (
-                                <div className="text-center py-12 bg-white rounded-xl border border-slate-200 border-dashed">
-                                    <p className="text-slate-400">No {activeTab} bookings found.</p>
-                                </div>
+                                <div className="text-center py-12 bg-white rounded-xl border border-slate-200 border-dashed"><p className="text-slate-400">No {activeTab} bookings found.</p></div>
                             ) : (
                                 filteredBookings.map((booking) => (
-                                    <div
-                                        key={booking.id}
-                                        className="bg-white rounded-xl border border-slate-200 p-4 md:p-6 shadow-sm hover:shadow-md transition-shadow flex flex-col md:flex-row md:items-center gap-4"
-                                    >
-                                        {/* Info */}
+                                    <div key={booking.id} className="bg-white rounded-xl border border-slate-200 p-4 md:p-6 shadow-sm hover:shadow-md transition-shadow flex flex-col md:flex-row md:items-center gap-4">
                                         <div className="flex-1 space-y-2">
                                             <div className="flex items-start justify-between">
-                                                <div>
-                                                    <h3 className="font-semibold text-slate-800">{booking.purpose}</h3>
-                                                    <p className="text-sm text-slate-500">{getRoomName(booking.roomId)}</p>
-                                                </div>
-                                                <span className={`px-2 py-1 rounded-full text-xs font-medium capitalize ${booking.status === 'confirmed' ? 'bg-green-100 text-green-700' :
-                                                    booking.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
-                                                        'bg-red-100 text-red-700'
-                                                    }`}>
-                                                    {booking.status}
-                                                </span>
+                                                <div><h3 className="font-semibold text-slate-800">{booking.purpose}</h3><p className="text-sm text-slate-500">{getRoomName(booking.roomId)}</p></div>
+                                                <span className={`px-2 py-1 rounded-full text-xs font-medium capitalize ${booking.status === 'confirmed' ? 'bg-green-100 text-green-700' : booking.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>{booking.status}</span>
                                             </div>
                                             <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-slate-600">
-                                                <div className="flex items-center gap-2">
-                                                    <span>📅</span>
-                                                    <span>{formatDate(booking.date)}</span>
-                                                </div>
-                                                <div className="flex items-center gap-2">
-                                                    <span>⏰</span>
-                                                    <span>{booking.startTime} - {booking.endTime}</span>
-                                                </div>
-                                                <div className="flex items-center gap-2">
-                                                    <span>👤</span>
-                                                    <span>{booking.bookedBy} ({booking.department})</span>
-                                                </div>
+                                                <div className="flex items-center gap-2"><span>📅</span><span>{formatDate(booking.date)}</span></div>
+                                                <div className="flex items-center gap-2"><span>⏰</span><span>{booking.startTime} - {booking.endTime}</span></div>
+                                                <div className="flex items-center gap-2"><span>👤</span><span>{booking.bookedBy} ({booking.department})</span></div>
                                             </div>
                                         </div>
-
-                                        {/* Actions */}
                                         {activeTab === "pending" && (
                                             <div className="flex items-center gap-3 pt-4 md:pt-0 md:border-l md:border-slate-100 md:pl-6">
-                                                <button
-                                                    onClick={() => onApprove(booking.id)}
-                                                    className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium rounded-lg transition-colors shadow-sm hover:shadow flex items-center gap-2"
-                                                >
-                                                    Approve
-                                                </button>
-                                                <button
-                                                    onClick={() => onReject(booking.id)}
-                                                    className="px-4 py-2 bg-white border border-slate-200 text-slate-600 hover:bg-red-50 hover:text-red-600 hover:border-red-200 text-sm font-medium rounded-lg transition-colors flex items-center gap-2"
-                                                >
-                                                    Reject
-                                                </button>
+                                                <button onClick={() => onApprove(booking.id)} className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium rounded-lg transition-colors shadow-sm hover:shadow flex items-center gap-2">Approve</button>
+                                                <button onClick={() => onReject(booking.id)} className="px-4 py-2 bg-white border border-slate-200 text-slate-600 hover:bg-red-50 hover:text-red-600 hover:border-red-200 text-sm font-medium rounded-lg transition-colors flex items-center gap-2">Reject</button>
                                             </div>
                                         )}
                                     </div>
@@ -161,10 +161,7 @@ const AdminView = ({ bookings, rooms, onApprove, onReject, onAddRoom, onToggleRo
                         {/* Room Management Header */}
                         <div className="flex justify-between items-center mb-6">
                             <h2 className="text-lg font-semibold text-slate-700">Room Management</h2>
-                            <button
-                                onClick={() => setIsAddRoomModalOpen(true)}
-                                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg shadow-sm transition-colors flex items-center gap-2"
-                            >
+                            <button onClick={() => setIsAddRoomModalOpen(true)} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg shadow-sm transition-colors flex items-center gap-2">
                                 <span>+</span> Add Room
                             </button>
                         </div>
@@ -174,7 +171,7 @@ const AdminView = ({ bookings, rooms, onApprove, onReject, onAddRoom, onToggleRo
                             {rooms.map((room) => (
                                 <div key={room.id} className="bg-white rounded-xl border border-slate-200 p-4 flex items-center justify-between shadow-sm">
                                     <div className="flex items-center gap-4">
-                                        <div className="w-16 h-16 bg-slate-100 rounded-lg overflow-hidden">
+                                        <div className="w-16 h-16 bg-slate-100 rounded-lg overflow-hidden flex-shrink-0">
                                             {room.image ? (
                                                 <img src={room.image} alt={room.name} className="w-full h-full object-cover" />
                                             ) : (
@@ -186,26 +183,36 @@ const AdminView = ({ bookings, rooms, onApprove, onReject, onAddRoom, onToggleRo
                                             <div className="text-sm text-slate-500 flex gap-3">
                                                 <span>{room.floor}</span>
                                                 <span>•</span>
-                                                <span>{room.type}</span>
-                                                <span>•</span>
                                                 <span>Capacity: {room.capacity}</span>
                                             </div>
                                         </div>
                                     </div>
+
+                                    {/* Action Buttons: Status Toggle & Delete */}
                                     <div className="flex items-center gap-4">
                                         <div className="flex items-center gap-2">
                                             <span className={`text-sm font-medium ${room.isActive ? "text-green-600" : "text-slate-400"}`}>
                                                 {room.isActive ? "Active" : "Inactive"}
                                             </span>
-                                            <button
-                                                onClick={() => onToggleRoomStatus(room.id)}
-                                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${room.isActive ? 'bg-green-500' : 'bg-slate-200'}`}
-                                            >
-                                                <span
-                                                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${room.isActive ? 'translate-x-6' : 'translate-x-1'}`}
-                                                />
+                                            <button onClick={() => onToggleRoomStatus(room.id)} className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${room.isActive ? 'bg-green-500' : 'bg-slate-200'}`}>
+                                                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${room.isActive ? 'translate-x-6' : 'translate-x-1'}`} />
                                             </button>
                                         </div>
+
+                                        {/* ปุ่มลบ (เพิ่มใหม่) */}
+                                        <button
+                                            onClick={() => {
+                                                if (confirm(`Are you sure you want to delete "${room.name}"?`)) {
+                                                    onDeleteRoom(room.id);
+                                                }
+                                            }}
+                                            className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                            title="Delete Room"
+                                        >
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                <path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+                                            </svg>
+                                        </button>
                                     </div>
                                 </div>
                             ))}
@@ -225,92 +232,60 @@ const AdminView = ({ bookings, rooms, onApprove, onReject, onAddRoom, onToggleRo
                         <form onSubmit={handleAddRoomSubmit} className="p-6 space-y-4">
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">Room Name</label>
-                                <input
-                                    required
-                                    type="text"
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                                    value={newRoom.name}
-                                    onChange={(e) => setNewRoom({ ...newRoom, name: e.target.value })}
-                                />
+                                <input required type="text" className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                                    value={newRoom.name} onChange={(e) => setNewRoom({ ...newRoom, name: e.target.value })} />
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700 mb-1">Floor</label>
-                                    <input
-                                        required
-                                        type="text"
-                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                                        value={newRoom.floor}
-                                        onChange={(e) => setNewRoom({ ...newRoom, floor: e.target.value })}
-                                    />
+                                    <input required type="text" className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                                        value={newRoom.floor} onChange={(e) => setNewRoom({ ...newRoom, floor: e.target.value })} />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700 mb-1">Capacity</label>
-                                    <input
-                                        required
-                                        type="number"
-                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                                        value={newRoom.capacity}
-                                        onChange={(e) => setNewRoom({ ...newRoom, capacity: e.target.value })}
-                                    />
-                                </div>
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Type</label>
-                                    <select
-                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
-                                        value={newRoom.type}
-                                        onChange={(e) => setNewRoom({ ...newRoom, type: e.target.value })}
-                                    >
-                                        <option value="Meeting">Meeting</option>
-                                        <option value="Canteen">Canteen</option>
-                                        <option value="Lobby">Lobby</option>
-                                        <option value="Middle">Middle</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Price / Hour</label>
-                                    <input
-                                        required
-                                        type="number"
-                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                                        value={newRoom.pricePerHour}
-                                        onChange={(e) => setNewRoom({ ...newRoom, pricePerHour: e.target.value })}
-                                    />
+                                    <input required type="number" className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                                        value={newRoom.capacity} onChange={(e) => setNewRoom({ ...newRoom, capacity: e.target.value })} />
                                 </div>
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">Amenities (comma separated)</label>
-                                <input
-                                    type="text"
-                                    placeholder="Wifi, TV, Whiteboard"
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                                    value={newRoom.amenities}
-                                    onChange={(e) => setNewRoom({ ...newRoom, amenities: e.target.value })}
-                                />
+                                <input type="text" placeholder="Wifi, TV, Whiteboard" className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                                    value={newRoom.amenities} onChange={(e) => setNewRoom({ ...newRoom, amenities: e.target.value })} />
                             </div>
+
+                            {/* ส่วนอัปโหลดรูปภาพ */}
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Image URL (Optional)</label>
-                                <input
-                                    type="text"
-                                    placeholder="/images/room.jpg"
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                                    value={newRoom.image}
-                                    onChange={(e) => setNewRoom({ ...newRoom, image: e.target.value })}
-                                />
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Room Image</label>
+                                <div className="flex items-center gap-4">
+                                    <div
+                                        onClick={() => fileInputRef.current?.click()}
+                                        className="w-20 h-20 border-2 border-dashed border-slate-300 rounded-lg flex items-center justify-center cursor-pointer hover:border-indigo-500 hover:bg-slate-50 transition-colors overflow-hidden"
+                                    >
+                                        {newRoom.imagePreview ? (
+                                            <img src={newRoom.imagePreview} alt="Preview" className="w-full h-full object-cover" />
+                                        ) : (
+                                            <span className="text-slate-400 text-xs text-center p-1">Upload Photo</span>
+                                        )}
+                                    </div>
+                                    <input
+                                        type="file"
+                                        ref={fileInputRef}
+                                        accept="image/*"
+                                        className="hidden"
+                                        onChange={handleImageChange}
+                                    />
+                                    <div className="text-xs text-slate-500">
+                                        {isProcessingImg ? "Converting to WebP..." : "Click box to upload (Auto-converted to WebP)"}
+                                    </div>
+                                </div>
                             </div>
+
                             <div className="pt-4 flex justify-end gap-3">
-                                <button
-                                    type="button"
-                                    onClick={() => setIsAddRoomModalOpen(false)}
-                                    className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
-                                >
-                                    Cancel
-                                </button>
+                                <button type="button" onClick={() => setIsAddRoomModalOpen(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">Cancel</button>
                                 <button
                                     type="submit"
-                                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg shadow-sm transition-colors"
+                                    disabled={isProcessingImg}
+                                    className={`px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg shadow-sm transition-colors ${isProcessingImg ? 'opacity-50 cursor-not-allowed' : ''}`}
                                 >
                                     Add Room
                                 </button>

@@ -1,177 +1,210 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useRouter } from "next/router"; // ถ้าใช้ App Router ให้เปลี่ยนเป็น "next/navigation"
+import { useRouter } from "next/router"; // หรือ "next/navigation" สำหรับ App Router
 import Navbar from "@/components/roombooking/Navbar";
 import CalendarView from "@/components/roombooking/CalendarView";
 import ListingView from "@/components/roombooking/ListingView";
 import AdminView from "@/components/roombooking/AdminView";
+import {
+    getRooms,
+    getAllBookings,
+    createBooking,
+    updateBookingStatus,
+    createRoom,
+    updateRoomStatus,
+    deleteRoom // ✅ 1. เพิ่ม Import deleteRoom
+} from "@/services/api";
 
-// Mock Data
-const initialRooms = [
-    {
-        id: "r1",
-        name: "Master Conference Room",
-        floor: "Floor 2",
-        capacity: 15,
-        type: "Meeting",
-        amenities: ["LCD Monitor 75\"", "Video Conference", "Whiteboard", "WIFI", "Pure Water", "HDMI Cable"],
-        pricePerHour: 30,
-        image: "/images/master.jpg",
-        isActive: true
-    },
-    {
-        id: "r2",
-        name: "Floor 5-Lobby (Meeting)",
-        floor: "Floor 5",
-        capacity: 10,
-        type: "Meeting",
-        amenities: ["LCD Monitor 55\"", "Whiteboard", "HDMI Cable", "WIFI", "Pure Water"],
-        pricePerHour: 25,
-        image: "/images/lobby.jpg",
-        isActive: true
-    },
-    {
-        id: "r3",
-        name: "Floor 1-Canteen",
-        floor: "Floor 1",
-        capacity: 5,
-        type: "Canteen",
-        amenities: ["LCD Monitor 45\"", "HDMI Cable", "WIFI"],
-        pricePerHour: 15,
-        image: "/images/canteen.jpg",
-        isActive: true
-    },
-    {
-        id: "r4",
-        name: "Floor 5-Middle",
-        floor: "Floor 5",
-        capacity: 4,
-        type: "Middle",
-        amenities: ["LCD Monitor 45\"", "HDMI Cable", "WIFI"],
-        pricePerHour: 5,
-        image: "/images/middle.jpg",
-        isActive: true
-    },
-];
-
-const initialBookings = [
-    {
-        id: "b1",
-        roomId: "r4",
-        title: "Floor 1-Canteen",
-        startTime: "16:00",
-        endTime: "17:30",
-        bookedBy: "Khun Manita Thongwichian",
-        department: "HR",
-        purpose: "Staff Meeting",
-        attendees: 25,
-        cost: 0,
-        status: "confirmed",
-        date: "2025-11-26",
-    },
-    {
-        id: "b2",
-        roomId: "r2",
-        title: "Floor 5-Middle",
-        startTime: "16:30",
-        endTime: "17:30",
-        bookedBy: "Puii",
-        department: "Finance",
-        purpose: "Budget Review",
-        attendees: 4,
-        cost: 0,
-        status: "confirmed",
-        date: "2025-11-26",
-    },
-    {
-        id: "b3",
-        roomId: "r3",
-        title: "Floor 1-Canteen",
-        startTime: "11:00",
-        endTime: "17:00",
-        bookedBy: "Khun Manita Thongwichian",
-        department: "HR",
-        purpose: "Training",
-        attendees: 30,
-        cost: 500,
-        status: "confirmed",
-        date: "2025-11-26",
-    },
-    {
-        id: "b4",
-        roomId: "r1",
-        title: "Master Conference Room",
-        startTime: "13:00",
-        endTime: "17:30",
-        bookedBy: "Services",
-        department: "IT",
-        purpose: "Meeting training GPON Ruijie",
-        attendees: 10,
-        cost: 225,
-        status: "confirmed",
-        date: "2025-11-26",
-    },
-];
+// สมมติข้อมูลเริ่มต้น
+const initialBookings = [];
+const initialRooms = [];
 
 export default function RoomBookingPage() {
     const router = useRouter();
-    const [loading, setLoading] = useState(true); // ✅ เพิ่ม State สำหรับ Loading
 
+    // --- 1. State Definitions ---
+    const [loading, setLoading] = useState(true);
     const [currentView, setCurrentView] = useState("calendar");
     const [bookings, setBookings] = useState(initialBookings);
     const [rooms, setRooms] = useState(initialRooms);
 
-    // ✅ เพิ่ม useEffect เพื่อตรวจสอบ Token ก่อนเข้าใช้งาน
-    useEffect(() => {
-        // ตรวจสอบว่ามี Token ใน localStorage หรือไม่ (เช็คทั้ง token และ auth_token เผื่อไว้)
-        const token = localStorage.getItem("token") || localStorage.getItem("auth_token");
+    const fetchData = async () => {
+        try {
+            const [roomsData, bookingsData] = await Promise.all([
+                getRooms(),
+                getAllBookings()
+            ]);
 
-        if (!token) {
-            // ถ้าไม่มี Token ให้ Redirect ไปหน้า Login หรือหน้าแรกทันที
-            router.replace("/"); // หรือ router.replace("/login")
-        } else {
-            // ถ้ามี Token ก็ให้โหลดหน้าเว็บตามปกติ
+            // Transform rooms data
+            const transformedRooms = roomsData.map(r => ({
+                id: r.room_id,
+                name: r.room_name,
+                floor: "Floor ?",
+                capacity: r.capacity,
+                type: r.room_type,
+                amenities: [], // ต้องดึงจาก API แยก หรือแก้ API getRooms ให้ส่งมาด้วย
+                image: r.image_url || "/images/meeting.jpg",
+                isActive: r.room_status === 'AVAILABLE'
+            }));
+
+            // Transform bookings data
+            const transformedBookings = bookingsData.map(b => ({
+                id: b.booking_id,
+                roomId: b.room_id,
+                title: b.room_name,
+                startTime: b.start_time?.substring(0, 5),
+                endTime: b.end_time?.substring(0, 5),
+                bookedBy: `${b.first_name} ${b.last_name}`,
+                department: "Unknown",
+                purpose: b.purpose,
+                attendees: b.attendees || 0,
+                cost: 0,
+                status: b.status,
+                date: b.booking_date?.substring(0, 10),
+            }));
+
+            setRooms(transformedRooms);
+            setBookings(transformedBookings);
+        } catch (error) {
+            console.error("Failed to fetch data:", error);
+        } finally {
             setLoading(false);
+        }
+    };
+
+    // --- 2. useEffect Check Token ---
+    useEffect(() => {
+        const token = localStorage.getItem("token");
+        if (!token) {
+            router.replace("/");
+        } else {
+            fetchData();
         }
     }, [router]);
 
-    // แก้ไข: รับ Array แทน Object เดียว
-    const handleBookingConfirmed = (newBookings) => {
-        // สร้าง ID ให้แต่ละ Booking (ถ้ายังไม่มี) และรวมเข้า State ทีเดียว
-        // Default status is 'pending' for new bookings
-        const bookingsWithIds = newBookings.map(b => ({
-            ...b,
-            id: b.id || Math.random().toString(36).substr(2, 9),
-            status: 'pending'
-        }));
+    // --- 3. Handlers ---
 
-        setBookings(prev => [...prev, ...bookingsWithIds]);
+    const handleBookingConfirmed = async (newBookings) => {
+        try {
+            for (const booking of newBookings) {
+                await createBooking({
+                    room_id: booking.roomId,
+                    booking_date: booking.date,
+                    start_time: booking.startTime,
+                    end_time: booking.endTime,
+                    purpose: booking.purpose,
+                    attendees: booking.attendees
+                });
+            }
+            await fetchData();
+            alert("Booking created successfully!");
+        } catch (error) {
+            console.error("Create booking failed:", error);
+            alert("Failed to create booking. Please try again.");
+        }
     };
 
-    const handleApproveBooking = (bookingId) => {
-        setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, status: 'confirmed' } : b));
+    const handleApproveBooking = async (bookingId) => {
+        try {
+            await updateBookingStatus(bookingId, 'confirmed');
+            setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, status: 'confirmed' } : b));
+        } catch (error) {
+            console.error("Approve booking failed:", error);
+            alert("Failed to approve booking.");
+        }
     };
 
-    const handleRejectBooking = (bookingId) => {
-        setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, status: 'cancelled' } : b));
+    const handleRejectBooking = async (bookingId) => {
+        try {
+            await updateBookingStatus(bookingId, 'cancelled');
+            setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, status: 'cancelled' } : b));
+        } catch (error) {
+            console.error("Reject booking failed:", error);
+            alert("Failed to reject booking.");
+        }
     };
 
-    const handleAddRoom = (newRoom) => {
-        setRooms(prev => [...prev, { ...newRoom, id: `r${Date.now()}`, isActive: true }]);
+    // ✅ 2. ปรับปรุง handleAddRoom ให้รองรับการ Upload รูปภาพ
+    const handleAddRoom = async (newRoomData) => {
+        try {
+            let finalImageUrl = newRoomData.image || "/images/meeting.jpg"; // Default image
+
+            // ถ้ามีการแนบไฟล์รูปภาพมา ให้ Upload ก่อน
+            if (newRoomData.imageFile) {
+                const formData = new FormData();
+                formData.append("file", newRoomData.imageFile);
+
+                const uploadRes = await fetch("/api/upload", {
+                    method: "POST",
+                    body: formData,
+                });
+
+                const uploadResult = await uploadRes.json();
+
+                if (uploadResult.success) {
+                    finalImageUrl = uploadResult.filepath; // ได้ path เช่น /uploads/room-xxx.webp
+                } else {
+                    console.warn("Image upload failed, using default image.");
+                }
+            }
+
+            // ส่งข้อมูลไปสร้างห้องใน Database
+            await createRoom({
+                room_name: newRoomData.name,
+                capacity: newRoomData.capacity,
+                amenity_ids: [], // ถ้ามี amenity_ids ต้องจัดการ mapping ตรงนี้
+                image_url: finalImageUrl,
+                room_status_code: 'AVAILABLE'
+            });
+
+            await fetchData(); // โหลดข้อมูลใหม่เพื่อให้เห็นห้องล่าสุด
+            alert("Room created successfully!");
+        } catch (error) {
+            console.error("Add room failed:", error);
+            alert("Failed to add room. Please check logs.");
+        }
     };
 
-    const handleToggleRoomStatus = (roomId) => {
-        setRooms(prev => prev.map(r => r.id === roomId ? { ...r, isActive: !r.isActive } : r));
+    // ✅ 3. เพิ่มฟังก์ชัน Delete Room
+    const handleDeleteRoom = async (roomId) => {
+        try {
+            await deleteRoom(roomId);
+
+            // อัปเดต state ทันทีเพื่อความรวดเร็ว (Optimistic Update)
+            setRooms(prev => prev.filter(r => r.id !== roomId));
+
+            // หรือจะเรียก fetchData() อีกครั้งเพื่อความชัวร์ก็ได้
+            // await fetchData(); 
+
+            alert("Room deleted successfully");
+        } catch (error) {
+            console.error("Delete room failed:", error);
+            alert("Failed to delete room.");
+        }
     };
 
-    // Filter only confirmed bookings for public views
+    const handleToggleRoomStatus = async (roomId) => {
+        try {
+            const room = rooms.find(r => r.id === roomId);
+            // สลับสถานะ (ถ้า Active อยู่ ให้เป็น MAINTENANCE, ถ้าไม่ ก็ AVAILABLE)
+            const newStatus = room.isActive ? 'MAINTENANCE' : 'AVAILABLE';
+
+            await updateRoomStatus(roomId, newStatus);
+
+            // Update UI
+            setRooms(prev => prev.map(r => r.id === roomId ? { ...r, isActive: !r.isActive } : r));
+        } catch (error) {
+            console.error("Toggle room status failed:", error);
+            alert("Failed to update room status.");
+        }
+    };
+
+    // --- 4. Render Preparation ---
     const confirmedBookings = bookings.filter(b => b.status === 'confirmed');
-
-    // Filter active rooms for public views
     const activeRooms = rooms.filter(r => r.isActive);
 
-    // ✅ ถ้ากำลัง Loading (กำลังเช็ค Token) ให้แสดงหน้าจอโหลด เพื่อกันไม่ให้เห็นเนื้อหาภายใน
+    // --- 5. Render ---
     if (loading) {
         return (
             <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 gap-3">
@@ -202,6 +235,7 @@ export default function RoomBookingPage() {
                         onReject={handleRejectBooking}
                         onAddRoom={handleAddRoom}
                         onToggleRoomStatus={handleToggleRoomStatus}
+                        onDeleteRoom={handleDeleteRoom} // ✅ ส่ง prop ลงไป
                     />
                 )}
             </div>
