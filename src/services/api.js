@@ -31,6 +31,7 @@ api.interceptors.request.use(
   }
 );
 
+// ⭐ ส่วนที่แก้ (Fixed Loop Issue)
 api.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -39,17 +40,26 @@ api.interceptors.response.use(
 
       if (status === 401) {
         console.warn("[API Error] 401 Unauthorized: Session expired.");
+        
         if (typeof window !== "undefined") {
           localStorage.removeItem("token");
           localStorage.removeItem("auth_token");
           localStorage.removeItem("user");
 
+          const currentPath = window.location.pathname;
+
+          // เช็คว่าไม่ได้อยู่หน้า Login
           if (
-            window.location.pathname !== "/" &&
-            window.location.pathname !== "/login"
+            currentPath !== "/" &&
+            currentPath !== "/login" &&
+            currentPath !== "/auth/login"
           ) {
             alert("Session expired. Please login again.");
-            window.location.href = "/";
+            window.location.href = "/auth/login";
+            
+            // ⭐⭐⭐ เพิ่มบรรทัดนี้: ส่ง Promise ค้างไว้ เพื่อไม่ให้ Error เด้งขึ้นหน้าจอ
+            // ตัว Browser จะ Redirect หนีไปก่อนที่ Promise นี้จะจบ
+            return new Promise(() => {}); 
           }
         }
       } else if (status === 403) {
@@ -63,11 +73,10 @@ api.interceptors.response.use(
 export default api;
 
 // ==========================================
-// User / Auth Related (✅ เพิ่มส่วนนี้)
+// User / Auth Related
 // ==========================================
 
 export const fetchUserProfile = async () => {
-  // วิธีที่ 1: ลองดึงจาก LocalStorage ก่อน (ถ้าตอน Login คุณเก็บ user object ไว้)
   if (typeof window !== "undefined") {
     const userStr = localStorage.getItem("user");
     if (userStr) {
@@ -79,8 +88,6 @@ export const fetchUserProfile = async () => {
     }
   }
 
-  // วิธีที่ 2: ถ้าไม่มีใน LocalStorage ให้เรียก API ไปถาม Backend
-  // ⚠️ หมายเหตุ: คุณต้องมี Route "/auth/me" หรือ "/profile" ที่ Backend
   try {
     const res = await api.get("/auth/me");
     return res.data;
@@ -226,25 +233,19 @@ export const createRoom = async (data) => {
 };
 
 export const updateRoomStatus = async (id, status) => {
-  // Backend expects room_status_code
   const res = await api.patch(`/room/${id}/status`, { room_status_code: status });
   return res.data;
 };
 
-// 1. ฟังก์ชันลบห้อง (แก้ Error ที่ขึ้นอยู่ตอนนี้)
 export const deleteRoom = async (id) => {
-  // ยิงไป Backend หลัก (Node.js/Express)
-  // สมมติว่า Backend คุณรับ DELETE /room/:id
   const res = await api.delete(`/room/${id}`);
   return res.data;
 };
 
-// 2. ฟังก์ชันอัปโหลดรูป (เรียกใช้ API ของ Next.js ที่เราเพิ่งสร้าง)
 export const uploadImage = async (file) => {
   const formData = new FormData();
   formData.append("file", file);
 
-  // ยิงไปหา Frontend Server (Next.js API) ที่ pages/api/upload.js
   const response = await fetch('/api/upload', {
     method: 'POST',
     body: formData,

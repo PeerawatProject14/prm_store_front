@@ -1,4 +1,5 @@
-import { useState } from "react";
+// 1. เพิ่ม useEffect เข้ามา
+import { useState, useEffect } from "react"; 
 import Input from "@/components/auth/Input";
 import Button from "@/components/auth/Button";
 import { loginUser } from "@/services/auth";
@@ -9,6 +10,23 @@ export default function LoginForm() {
   const { setToken } = useAuth();
   const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
+
+  // ⭐ แก้ Loop: สั่งลบ Token ทันทีที่ Component นี้เริ่มทำงาน
+  useEffect(() => {
+    // ลบ Token และ User เก่าที่อาจจะค้างอยู่และหมดอายุแล้ว
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    localStorage.removeItem("accessToken"); // เผื่อมี key นี้
+    
+    // ลบ Cookies ด้วย (เพื่อความชัวร์)
+    document.cookie.split(";").forEach((c) => {
+      document.cookie = c
+        .replace(/^ +/, "")
+        .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+    });
+    
+    console.log("Cleanup: Old session data cleared.");
+  }, []); // [] หมายถึงทำแค่ครั้งเดียวตอนโหลดหน้า
 
   const handleChange = (e) =>
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -21,14 +39,16 @@ export default function LoginForm() {
       const result = await loginUser(form);
 
       if (result?.token) {
+        // บันทึก Token ใหม่
         setToken(result.token);
-        
-        // ⭐ เพิ่มบรรทัดนี้ครับ: บันทึกข้อมูล user ลงเครื่อง
-        // เพื่อให้หน้าอื่นดึงไปเช็ค role ได้
+        localStorage.setItem("token", result.token); // บันทึก token ลง storage ด้วยถ้า context ไม่ได้ทำให้
+
+        // บันทึกข้อมูล user
         if (result.user) {
            localStorage.setItem("user", JSON.stringify(result.user));
         }
 
+        // Redirect ไปหน้า Dashboard
         window.location.href = "/dashboard";
       }
     } catch (err) {
@@ -37,9 +57,7 @@ export default function LoginForm() {
   };
 
   return (
-    // Card สไตล์ IG: ขอบบาง เงาจางๆ
     <div className="bg-white border border-gray-200 shadow-sm rounded-lg p-10 w-full max-w-sm mx-auto">
-      {/* Header แบบเรียบหรู (หรือจะใช้ Gradient เดิมก็ได้ แต่ IG มักจะคลีนๆ) */}
       <h1 className="text-3xl font-semibold text-center text-gray-800 mb-8 font-sans tracking-tight">
         Sign in
       </h1>
