@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useRouter } from "next/router"; // ถ้าใช้ App Router ให้เปลี่ยนเป็น "next/navigation"
 import Navbar from "@/components/roombooking/Navbar";
 import CalendarView from "@/components/roombooking/CalendarView";
 import ListingView from "@/components/roombooking/ListingView";
@@ -114,9 +115,26 @@ const initialBookings = [
 ];
 
 export default function RoomBookingPage() {
+    const router = useRouter();
+    const [loading, setLoading] = useState(true); // ✅ เพิ่ม State สำหรับ Loading
+
     const [currentView, setCurrentView] = useState("calendar");
     const [bookings, setBookings] = useState(initialBookings);
     const [rooms, setRooms] = useState(initialRooms);
+
+    // ✅ เพิ่ม useEffect เพื่อตรวจสอบ Token ก่อนเข้าใช้งาน
+    useEffect(() => {
+        // ตรวจสอบว่ามี Token ใน localStorage หรือไม่ (เช็คทั้ง token และ auth_token เผื่อไว้)
+        const token = localStorage.getItem("token") || localStorage.getItem("auth_token");
+
+        if (!token) {
+            // ถ้าไม่มี Token ให้ Redirect ไปหน้า Login หรือหน้าแรกทันที
+            router.replace("/"); // หรือ router.replace("/login")
+        } else {
+            // ถ้ามี Token ก็ให้โหลดหน้าเว็บตามปกติ
+            setLoading(false);
+        }
+    }, [router]);
 
     // แก้ไข: รับ Array แทน Object เดียว
     const handleBookingConfirmed = (newBookings) => {
@@ -152,6 +170,16 @@ export default function RoomBookingPage() {
 
     // Filter active rooms for public views
     const activeRooms = rooms.filter(r => r.isActive);
+
+    // ✅ ถ้ากำลัง Loading (กำลังเช็ค Token) ให้แสดงหน้าจอโหลด เพื่อกันไม่ให้เห็นเนื้อหาภายใน
+    if (loading) {
+        return (
+            <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 gap-3">
+                <div className="animate-spin h-10 w-10 border-4 border-gray-300 border-t-[#0095F6] rounded-full"></div>
+                <span className="text-gray-500 font-medium animate-pulse">Checking Permission...</span>
+            </div>
+        );
+    }
 
     return (
         <main className="min-h-screen bg-slate-50 flex flex-col font-sans h-screen">

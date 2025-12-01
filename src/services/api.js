@@ -9,7 +9,7 @@ if (!apiUrl) {
 }
 
 const api = axios.create({
-  baseURL: apiUrl, 
+  baseURL: apiUrl,
   headers: {
     "Content-Type": "application/json",
   },
@@ -62,6 +62,38 @@ api.interceptors.response.use(
 
 export default api;
 
+// ==========================================
+// User / Auth Related (✅ เพิ่มส่วนนี้)
+// ==========================================
+
+export const fetchUserProfile = async () => {
+  // วิธีที่ 1: ลองดึงจาก LocalStorage ก่อน (ถ้าตอน Login คุณเก็บ user object ไว้)
+  if (typeof window !== "undefined") {
+    const userStr = localStorage.getItem("user");
+    if (userStr) {
+      try {
+        return JSON.parse(userStr);
+      } catch (err) {
+        console.error("Error parsing user from localStorage", err);
+      }
+    }
+  }
+
+  // วิธีที่ 2: ถ้าไม่มีใน LocalStorage ให้เรียก API ไปถาม Backend
+  // ⚠️ หมายเหตุ: คุณต้องมี Route "/auth/me" หรือ "/profile" ที่ Backend
+  try {
+    const res = await api.get("/auth/me"); 
+    return res.data;
+  } catch (error) {
+    console.warn("Cannot fetch user profile from API", error);
+    throw error;
+  }
+};
+
+// ==========================================
+// Case / Hot Issue Related
+// ==========================================
+
 export const getHotIssueStats = async () => {
   const res = await api.get("/case/stats");
   return res.data;
@@ -96,6 +128,10 @@ export const updateCase = async (id, data) => {
   const res = await api.put(`/case/${id}`, data);
   return res.data;
 };
+
+// ==========================================
+// Admin Management Related
+// ==========================================
 
 const ADMIN_USER_PATH = "/admin/users";
 const ADMIN_ROLE_PATH = "/admin/roles";
@@ -133,6 +169,10 @@ export const deleteUserApi = async (userId) => {
   const response = await api.delete(`${ADMIN_USER_PATH}/${userId}`);
   return response.data;
 };
+
+// ==========================================
+// Module Management Related
+// ==========================================
 
 const MODULES_PATH = "/admin/modules";
 

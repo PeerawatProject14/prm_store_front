@@ -1,10 +1,10 @@
-// src/components/admin/UserTable.jsx
 import { useState, useMemo } from "react";
 import { HiMagnifyingGlass, HiFunnel, HiChevronDown } from "react-icons/hi2";
 
 export default function UserTable({
   users,
   roles,
+  currentUserId, // ✅ 1. รับค่า ID ของคน Login เข้ามา
   onRoleChange,
   onToggleStatus,
   onApprove,
@@ -16,7 +16,7 @@ export default function UserTable({
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [approveFilter, setApproveFilter] = useState("ALL");
 
-  // --------------------- FILTER LOGIC (เดิม) ---------------------------
+  // --------------------- FILTER LOGIC ---------------------------
   const filteredUsers = useMemo(() => {
     const q = search.trim().toLowerCase();
     return users.filter((u) => {
@@ -139,110 +139,121 @@ export default function UserTable({
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {filteredUsers.map((user) => (
-              <tr key={user.id} className="hover:bg-gray-50 transition">
-                
-                {/* 1. Info */}
-                <td className="px-6 py-4 align-middle">
-                  <div className="flex items-center gap-3">
-                    {/* Avatar สีรุ้งสไตล์ IG (เพิ่มลูกเล่นนิดนึง) */}
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-500 p-[2px]">
-                        <div className="w-full h-full rounded-full bg-white flex items-center justify-center text-gray-700 font-bold text-xs border border-white">
-                            {user.name ? user.name.charAt(0).toUpperCase() : "?"}
-                        </div>
-                    </div>
-                    <div>
-                        <div className="font-semibold text-gray-900">{user.name}</div>
-                        <div className="text-xs text-gray-500">{user.email}</div>
-                    </div>
-                  </div>
-                </td>
+            {filteredUsers.map((user) => {
+              // ✅ 2. เช็คว่าเป็นตัวเองหรือไม่
+              const isMe = currentUserId && String(user.id) === String(currentUserId);
 
-                {/* 2. Role Dropdown: มินิมอล */}
-                <td className="px-6 py-4 align-middle">
-                  <div className="relative w-fit">
-                    <select
+              return (
+                <tr key={user.id} className={`transition ${isMe ? "bg-blue-50/30" : "hover:bg-gray-50"}`}>
+                  
+                  {/* 1. Info */}
+                  <td className="px-6 py-4 align-middle">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-500 p-[2px]">
+                        <div className="w-full h-full rounded-full bg-white flex items-center justify-center text-gray-700 font-bold text-xs border border-white">
+                          {user.name ? user.name.charAt(0).toUpperCase() : "?"}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="font-semibold text-gray-900">
+                            {user.name} 
+                            {isMe && <span className="text-xs text-[#0095F6] ml-1">(คุณ)</span>}
+                        </div>
+                        <div className="text-xs text-gray-500">{user.email}</div>
+                      </div>
+                    </div>
+                  </td>
+
+                  {/* 2. Role Dropdown */}
+                  <td className="px-6 py-4 align-middle">
+                    <div className="relative w-fit">
+                      <select
+                        disabled={isMe} // ✅ ปิดถ้าเป็นตัวเอง
                         value={user.roleId || ""}
                         onChange={(e) => onRoleChange(user.id, Number(e.target.value))}
-                        className="appearance-none bg-transparent font-medium text-gray-700 pr-6 py-1 cursor-pointer focus:outline-none hover:text-[#0095F6]"
-                    >
+                        className={`appearance-none bg-transparent font-medium text-gray-700 pr-6 py-1 focus:outline-none 
+                            ${isMe ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:text-[#0095F6]"}`}
+                      >
                         {roles.map((role) => (
-                        <option key={role.role_id} value={role.role_id}>
+                          <option key={role.role_id} value={role.role_id}>
                             {role.role_name}
-                        </option>
+                          </option>
                         ))}
-                    </select>
-                    <HiChevronDown className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-gray-400 text-xs" />
-                  </div>
-                </td>
+                      </select>
+                      {!isMe && <HiChevronDown className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-gray-400 text-xs" />}
+                    </div>
+                  </td>
 
-                {/* 3. Status Toggle: iOS Switch */}
-                <td className="px-6 py-4 text-center align-middle">
-                  <div className="flex flex-col items-center">
-                    <button
+                  {/* 3. Status Toggle */}
+                  <td className="px-6 py-4 text-center align-middle">
+                    <div className="flex flex-col items-center">
+                      <button
+                        disabled={isMe} // ✅ ปิดถ้าเป็นตัวเอง
                         onClick={() => onToggleStatus(user.id, user.statusCode)}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ease-in-out border border-transparent ${
-                        user.statusCode === "ACTIVE" ? "bg-[#34C759]" : "bg-[#E9E9EA]" // เขียว iOS หรือ เทา
-                        }`}
-                    >
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ease-in-out border border-transparent 
+                          ${isMe ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}
+                          ${user.statusCode === "ACTIVE" ? "bg-[#34C759]" : "bg-[#E9E9EA]"}`}
+                      >
                         <span
-                        className={`inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                          className={`inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
                             user.statusCode === "ACTIVE" ? "translate-x-5" : "translate-x-0.5"
-                        }`}
+                          }`}
                         />
-                    </button>
-                    <span className={`text-[10px] mt-1 font-medium ${
-                         user.statusCode === "ACTIVE" ? "text-green-500" : "text-gray-400"
-                    }`}>
+                      </button>
+                      <span className={`text-[10px] mt-1 font-medium ${
+                        user.statusCode === "ACTIVE" ? "text-green-500" : "text-gray-400"
+                      }`}>
                         {user.statusCode}
-                    </span>
-                  </div>
-                </td>
+                      </span>
+                    </div>
+                  </td>
 
-                {/* 4. Approve Button: สีฟ้า IG */}
-                <td className="px-6 py-4 text-center align-middle">
-                  {user.statusCode === "PENDING" ? (
-                    <button
-                      onClick={() => onApprove(user.id)}
-                      // ✅ เปลี่ยนสีเป็นฟ้า IG (#0095F6) + ขอบมน lg
-                      className="bg-[#0095F6] hover:bg-[#1877F2] text-white px-4 py-1.5 rounded-lg text-sm font-semibold transition shadow-sm"
-                    >
-                      อนุมัติ
-                    </button>
-                  ) : (
-                    <span
-                      className={`text-xs flex justify-center items-center gap-1 font-medium px-3 py-1 rounded-lg w-fit mx-auto
-                        ${
-                          user.statusCode === "INACTIVE"
-                            ? "text-red-600 bg-red-50"
-                            : "text-green-600 bg-green-50"
-                        }`}
-                    >
-                      {user.statusCode}
-                    </span>
-                  )}
-                </td>
+                  {/* 4. Approve Button */}
+                  <td className="px-6 py-4 text-center align-middle">
+                    {user.statusCode === "PENDING" ? (
+                      <button
+                        onClick={() => onApprove(user.id)}
+                        className="bg-[#0095F6] hover:bg-[#1877F2] text-white px-4 py-1.5 rounded-lg text-sm font-semibold transition shadow-sm"
+                      >
+                        อนุมัติ
+                      </button>
+                    ) : (
+                      <span
+                        className={`text-xs flex justify-center items-center gap-1 font-medium px-3 py-1 rounded-lg w-fit mx-auto
+                          ${
+                            user.statusCode === "INACTIVE"
+                              ? "text-red-600 bg-red-50"
+                              : "text-green-600 bg-green-50"
+                          }`}
+                      >
+                        {user.statusCode}
+                      </span>
+                    )}
+                  </td>
 
-                {/* 5. Delete User: สีแดง IG */}
-                <td className="px-6 py-4 text-center align-middle">
-                  <button
-                    onClick={() => onDeleteUser(user.id)}
-                    // ✅ พื้นเทาอ่อน ตัวหนังสือแดง (สไตล์ปุ่มลบ IG)
-                    className="bg-[#EFEFEF] hover:bg-gray-200 text-[#ED4956] px-4 py-1.5 rounded-lg text-sm font-semibold transition"
-                    title="ลบผู้ใช้งาน"
-                  >
-                    ลบผู้ใช้
-                  </button>
-                </td>
-              </tr>
-            ))}
+                  {/* 5. Delete User */}
+                  <td className="px-6 py-4 text-center align-middle">
+                    {/* ✅ ถ้าเป็นตัวเอง ไม่แสดงปุ่มลบเลย */}
+                    {!isMe && (
+                      <button
+                        onClick={() => onDeleteUser(user.id)}
+                        className="bg-[#EFEFEF] hover:bg-gray-200 text-[#ED4956] px-4 py-1.5 rounded-lg text-sm font-semibold transition"
+                        title="ลบผู้ใช้งาน"
+                      >
+                        ลบผู้ใช้
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
 
             {filteredUsers.length === 0 && (
               <tr>
                 <td colSpan={5} className="px-6 py-10 text-center text-gray-500">
                   <div className="flex flex-col items-center gap-2">
                     <div className="w-16 h-16 rounded-full border-2 border-gray-300 flex items-center justify-center bg-gray-50">
-                        <HiMagnifyingGlass className="text-2xl text-gray-400" />
+                      <HiMagnifyingGlass className="text-2xl text-gray-400" />
                     </div>
                     <span className="font-medium text-sm">ไม่พบผู้ใช้ตามเงื่อนไขที่ค้นหา / กรองไว้</span>
                   </div>
