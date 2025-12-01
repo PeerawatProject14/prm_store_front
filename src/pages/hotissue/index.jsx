@@ -25,9 +25,6 @@ import {
   HiOutlineChartBar,
 } from "react-icons/hi2";
 
-// 🔢 helper แปลงให้เป็นตัวเลขแน่นอน
-const toNum = (v) => (v == null ? 0 : Number(v) || 0);
-
 export default function HotIssuePage() {
   const router = useRouter();
 
@@ -49,23 +46,18 @@ export default function HotIssuePage() {
 
   // Modal States
   const [showAddModal, setShowAddModal] = useState(false);
-
-  // Edit Modal States
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingCase, setEditingCase] = useState(null);
-
-  // History Modal States
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [historyCaseId, setHistoryCaseId] = useState(null);
 
   const [loading, setLoading] = useState(true);
 
-  // เลือกสัปดาห์ที่ดูในการ์ด Total
-  // 0 = สัปดาห์นี้, 1 = สัปดาห์ที่แล้ว, 2 = ย้อนหลังสองสัปดาห์
-  const [weekIndex, setWeekIndex] = useState(0);
+  // ✅ State View Mode: เริ่มต้นที่ WEEKLY
+  const [viewMode, setViewMode] = useState("WEEKLY");
 
   // =======================================================
-  // ฟังก์ชันโหลดข้อมูลหลัก (stats + detail + cases)
+  // Load Data
   // =======================================================
   const loadData = async () => {
     try {
@@ -87,9 +79,6 @@ export default function HotIssuePage() {
     }
   };
 
-  // =======================================================
-  // 0. CHECK MODULE ENABLED? (HOT_ISSUE)
-  // =======================================================
   useEffect(() => {
     const checkAccess = async () => {
       try {
@@ -102,27 +91,21 @@ export default function HotIssuePage() {
         setModuleAllowed(true);
       } catch (err) {
         console.error("ตรวจสอบสถานะ Hot Issue ล้มเหลว:", err);
-        alert("ไม่สามารถตรวจสอบสถานะระบบได้ กรุณาลองใหม่อีกครั้ง");
         router.replace("/dashboard");
         return;
       } finally {
         setCheckingModule(false);
       }
     };
-
     checkAccess();
   }, [router]);
 
-  // =======================================================
-  // 1. Load Data (หลังจากรู้แน่ๆ ว่า moduleAllowed = true)
-  // =======================================================
   useEffect(() => {
-    if (!moduleAllowed) return;
-    loadData();
+    if (moduleAllowed) loadData();
   }, [moduleAllowed]);
 
   // =======================================================
-  // 2. Filter Logic สำหรับตาราง
+  // Filter Logic
   // =======================================================
   useEffect(() => {
     let result = cases;
@@ -135,35 +118,21 @@ export default function HotIssuePage() {
           (item.case_id && item.case_id.toString().includes(lowerTerm))
       );
     }
-
-    if (type && type !== "All") {
-      result = result.filter((item) => item.type_code === type);
-    }
-
-    if (status && status !== "All") {
-      result = result.filter((item) => item.status_code === status);
-    }
-
+    if (type && type !== "All") result = result.filter((item) => item.type_code === type);
+    if (status && status !== "All") result = result.filter((item) => item.status_code === status);
     if (showActiveOnly) {
-      // Active = ยังไม่ DONE และยังไม่ CLOSED
       result = result.filter(
         (item) => item.status_code !== "DONE" && item.status_code !== "CLOSED"
       );
     }
-
     setFilteredCases(result);
   }, [search, type, status, showActiveOnly, cases]);
 
   // =======================================================
-  // 2.5 รวม Done + Closed ต่อประเภท จาก cases
+  // Combined Done Logic
   // =======================================================
   const combinedDoneByType = useMemo(() => {
-    const result = {
-      HOT_ISSUE: 0,
-      COMPLAIN: 0,
-      TEAMWORK: 0,
-    };
-
+    const result = { HOT_ISSUE: 0, COMPLAIN: 0, TEAMWORK: 0 };
     (cases || []).forEach((c) => {
       if (c.status_code === "DONE" || c.status_code === "CLOSED") {
         if (c.type_code === "HOT_ISSUE" || c.type_code === "HOT") result.HOT_ISSUE += 1;
@@ -171,136 +140,119 @@ export default function HotIssuePage() {
         if (c.type_code === "TEAMWORK") result.TEAMWORK += 1;
       }
     });
-
     return result;
   }, [cases]);
 
   // =======================================================
-  // 2.6 สรุปจำนวนราย "สัปดาห์" จาก cases (ใช้ในการ์ด Total)
+  // ✅ Data Calculation (Week / Month / Total / TypeStats)
   // =======================================================
-  const weeklySummaries = useMemo(() => {
+  const { summaryData, typeWeekly, totalStats } = useMemo(() => {
     const now = new Date();
+    now.setHours(0, 0, 0, 0);
 
-    const makeWeekRanges = () => {
-      const weeks = [];
-      for (let offset = 0; offset < 3; offset++) {
-        const end = new Date(now);
-        end.setHours(23, 59, 59, 999);
-        end.setDate(end.getDate() - offset * 7);
+    // Week Range
+    const currentDay = now.getDay();
+    const diffToMonday = currentDay === 0 ? 6 : currentDay - 1;
+    const startWeek = new Date(now);
+    startWeek.setDate(now.getDate() - diffToMonday);
+    startWeek.setHours(0, 0, 0, 0);
+    const endWeek = new Date(startWeek);
+    endWeek.setDate(startWeek.getDate() + 6);
+    endWeek.setHours(23, 59, 59, 999);
 
-        const start = new Date(end);
-        start.setHours(0, 0, 0, 0);
-        start.setDate(start.getDate() - 6);
+    // Month Range
+    const startMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
 
-        weeks.push({
-          start,
-          end,
-          total: 0,
-          done: 0, // รวม DONE + CLOSED
-        });
-      }
-      return weeks;
+    const data = {
+        week: { total: 0, done: 0, label: "" },
+        month: { total: 0, done: 0, label: "" }
+    };
+    const tWeekly = { HOT: 0, COMPLAIN: 0, TEAMWORK: 0 };
+    
+    // ✅ เพิ่มส่วน Total Stats
+    const tStats = { 
+        total: (cases || []).length, 
+        done: (cases || []).filter(c => c.status_code === 'DONE' || c.status_code === 'CLOSED').length,
+        label: "All Time"
     };
 
-    const weeks = makeWeekRanges();
+    const fmt = (d) => d.toLocaleDateString("th-TH", { day: "numeric", month: "short" });
+    const fmtMonth = (d) => d.toLocaleDateString("th-TH", { month: "long", year: "numeric" });
 
-    const fmt = (d) =>
-      d.toLocaleDateString("th-TH", {
-        day: "numeric",
-        month: "short",
-      });
+    data.week.label = `${fmt(startWeek)} - ${fmt(endWeek)}`;
+    data.month.label = fmtMonth(startMonth);
 
     (cases || []).forEach((c) => {
-      if (!c.created_at) return;
-      const created = new Date(c.created_at);
+        if (!c.created_at) return;
+        const created = new Date(c.created_at);
+        const isDone = c.status_code === "DONE" || c.status_code === "CLOSED";
 
-      for (let i = 0; i < weeks.length; i++) {
-        const w = weeks[i];
-        if (created >= w.start && created <= w.end) {
-          w.total += 1;
-          if (c.status_code === "DONE" || c.status_code === "CLOSED") {
-            w.done += 1;
-          }
-          break;
+        if (created >= startWeek && created <= endWeek) {
+            data.week.total += 1;
+            if (isDone) data.week.done += 1;
+            if (c.type_code === 'HOT_ISSUE' || c.type_code === 'HOT') tWeekly.HOT += 1;
+            else if (c.type_code === 'COMPLAIN') tWeekly.COMPLAIN += 1;
+            else if (c.type_code === 'TEAMWORK') tWeekly.TEAMWORK += 1;
         }
-      }
+
+        if (created >= startMonth && created <= endMonth) {
+            data.month.total += 1;
+            if (isDone) data.month.done += 1;
+        }
     });
 
-    return weeks.map((w) => ({
-      label: `${fmt(w.start)} - ${fmt(w.end)}`,
-      total: w.total,
-      done: w.done,
-    }));
+    return { summaryData: data, typeWeekly: tWeekly, totalStats: tStats };
   }, [cases]);
 
-  const currentWeek = weeklySummaries[weekIndex] || {
-    label: "",
-    total: 0,
-    done: 0,
-  };
-  const prevWeek = weeklySummaries[weekIndex + 1] || {
-    label: "",
-    total: 0,
-    done: 0,
+  // ✅ Toggle Logic (Cycle 3 States)
+  const handleNextView = () => {
+    setViewMode((prev) => {
+        if (prev === "WEEKLY") return "MONTHLY";
+        if (prev === "MONTHLY") return "TOTAL";
+        return "WEEKLY";
+    });
   };
 
-  const canPrevWeek = weekIndex < weeklySummaries.length - 1;
-  const canNextWeek = weekIndex > 0;
+  const handlePrevView = () => {
+    setViewMode((prev) => {
+        if (prev === "WEEKLY") return "TOTAL";
+        if (prev === "TOTAL") return "MONTHLY";
+        return "WEEKLY";
+    });
+  };
 
-  // =======================================================
-  // 3. Functions for Modals
-  // =======================================================
+  // ✅ Determine data to show
+  let currentViewData, currentTitle;
+  if (viewMode === "WEEKLY") {
+      currentViewData = summaryData.week;
+      currentTitle = "Weekly Cases";
+  } else if (viewMode === "MONTHLY") {
+      currentViewData = summaryData.month;
+      currentTitle = "Monthly Cases";
+  } else {
+      currentViewData = totalStats;
+      currentTitle = "Total Cases";
+  }
+
+  // Handlers
   const handleEditClick = (caseItem) => {
     setEditingCase(caseItem);
     setShowEditModal(true);
   };
-
   const handleHistoryClick = (caseId) => {
     setHistoryCaseId(caseId);
     setShowHistoryModal(true);
   };
 
-  // =======================================================
-  // 4. Loading / Guard States
-  // =======================================================
-  if (checkingModule) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-[#FAFAFA] text-gray-500 text-sm gap-3">
-         <div className="animate-spin h-6 w-6 border-2 border-gray-300 border-t-[#0095F6] rounded-full"></div>
-         Checking Permissions...
-      </div>
-    );
-  }
-
+  if (checkingModule) return <div className="min-h-screen flex items-center justify-center">Checking...</div>;
   if (!moduleAllowed) return null;
+  if (loading && !stats) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
 
-  if (loading && !stats) {
-    return (
-      <div className="min-h-screen bg-[#FAFAFA] flex flex-col items-center justify-center gap-3">
-         <div className="animate-spin h-8 w-8 border-2 border-gray-300 border-t-[#0095F6] rounded-full"></div>
-         <span className="text-gray-400 font-medium text-sm">Loading Dashboard...</span>
-      </div>
-    );
-  }
-  if (!stats || !detail) return null;
-
-  // =======================================================
-  // 5. Render Main UI
-  // =======================================================
   return (
-    // IG Style: พื้นหลังเทาอ่อน (#FAFAFA)
     <div className="min-h-screen bg-[#FAFAFA] font-sans">
-      
-      {/* ✅ แก้ไข: ขยาย Container เป็น 95% (เกือบเต็มจอ) เพื่อให้ตารางมีพื้นที่มากขึ้น */}
       <div className="w-full max-w-[95%] mx-auto px-4 py-6 md:px-8 md:py-10">
-        
-        <Header
-          dateText={new Date().toLocaleDateString("th-TH", {
-            year: "numeric",
-            month: "long",
-            day: "numeric",
-          })}
-        />
+        <Header dateText={new Date().toLocaleDateString("th-TH", { year: "numeric", month: "long", day: "numeric" })} />
 
         <HotIssueControls
           search={search}
@@ -315,78 +267,53 @@ export default function HotIssuePage() {
           onAddCase={() => setShowAddModal(true)}
         />
 
-        {/* การ์ดสรุป */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-8 mb-10">
-          {/* ✅ Total Cases */}
+          
+          {/* ✅ Card 1: Toggleable (Weekly -> Monthly -> Total) */}
           <StatsCard
-            title="Total Cases"
-            icon={<HiOutlineChartBar />}
-            total={currentWeek.total}
             isTotalCard
-            weekLabel={currentWeek.label}
-            weekDone={currentWeek.done}
-            prevWeekLabel={prevWeek.label}
-            prevWeekTotal={prevWeek.total}
-            prevWeekDone={prevWeek.done}
-            canPrev={canPrevWeek}
-            canNext={canNextWeek}
-            onPrevWeek={() =>
-              setWeekIndex((prev) =>
-                prev < weeklySummaries.length - 1 ? prev + 1 : prev
-              )
-            }
-            onNextWeek={() => setWeekIndex((prev) => (prev > 0 ? prev - 1 : prev))}
+            icon={<HiOutlineChartBar />}
+            title={currentTitle}
+            total={currentViewData.total}
+            label={currentViewData.label}
+            doneCount={currentViewData.done}
+            onPrev={handlePrevView}
+            onNext={handleNextView}
           />
 
-          {/* การ์ดประเภทอื่น ๆ */}
+          {/* Cards อื่นๆ (Split + Status List) */}
           <StatsCard
             title="Hot Issues"
             icon={<HiMiniFire />}
             total={stats.hot}
+            weeklyCount={typeWeekly.HOT}
             detail={detail.hot}
             doneCombined={combinedDoneByType.HOT_ISSUE}
           />
+
           <StatsCard
             title="Complaints"
             icon={<HiOutlineChatBubbleLeftRight />}
             total={stats.complaint}
+            weeklyCount={typeWeekly.COMPLAIN}
             detail={detail.complain}
             doneCombined={combinedDoneByType.COMPLAIN}
           />
+
           <StatsCard
             title="Teamwork"
             icon={<HiOutlineUsers />}
             total={stats.teamwork}
+            weeklyCount={typeWeekly.TEAMWORK}
             detail={detail.teamwork}
             doneCombined={combinedDoneByType.TEAMWORK}
           />
         </div>
 
-        <CaseTable
-          cases={filteredCases}
-          loading={loading}
-          onEdit={handleEditClick}
-          onHistory={handleHistoryClick}
-        />
-
-        <AddCaseModal
-          isOpen={showAddModal}
-          onClose={() => setShowAddModal(false)}
-          onSuccess={loadData}
-        />
-
-        <EditCaseModal
-          isOpen={showEditModal}
-          onClose={() => setShowEditModal(false)}
-          onSuccess={loadData}
-          caseData={editingCase}
-        />
-
-        <HistoryModal
-          isOpen={showHistoryModal}
-          onClose={() => setShowHistoryModal(false)}
-          caseId={historyCaseId}
-        />
+        <CaseTable cases={filteredCases} loading={loading} onEdit={handleEditClick} onHistory={handleHistoryClick} />
+        <AddCaseModal isOpen={showAddModal} onClose={() => setShowAddModal(false)} onSuccess={loadData} />
+        <EditCaseModal isOpen={showEditModal} onClose={() => setShowEditModal(false)} onSuccess={loadData} caseData={editingCase} />
+        <HistoryModal isOpen={showHistoryModal} onClose={() => setShowHistoryModal(false)} caseId={historyCaseId} />
       </div>
     </div>
   );

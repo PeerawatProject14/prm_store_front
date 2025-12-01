@@ -129,8 +129,9 @@ export default function CaseTable({ cases, loading, onEdit, onHistory }) {
                     {new Date(item.created_at).toLocaleDateString("th-TH")}
                   </td>
 
+                  {/* ✅ แก้ไขตรงนี้: เพิ่ม whitespace-nowrap */}
                   <td className="py-4 px-4">
-                    <span className={`px-3 py-1 rounded-md text-[11px] font-bold border tracking-wide ${typeConfig.style}`}>
+                    <span className={`px-3 py-1 rounded-md text-[11px] font-bold border tracking-wide whitespace-nowrap ${typeConfig.style}`}>
                       {typeConfig.label}
                     </span>
                   </td>
