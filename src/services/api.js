@@ -15,13 +15,38 @@ const api = axios.create({
   },
 });
 
+// ==========================================
+// 1. REQUEST INTERCEPTOR (ด่านหน้า)
+// ==========================================
 api.interceptors.request.use(
   (config) => {
     if (typeof window !== "undefined") {
       const token =
         localStorage.getItem("token") || localStorage.getItem("auth_token");
+
+      // รายชื่อ API Path ที่ยอมให้ยิงได้โดยไม่ต้องมี Token (เช่น Login)
+      const publicPaths = ["/auth/login", "/auth/register"];
+      const isPublicRequest = publicPaths.some((path) =>
+        config.url.includes(path)
+      );
+
+      // ถ้ามี Token ให้แนบไปกับ Header
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
+      }
+      // 🚨 ถ้าไม่มี Token และไม่ใช่การเรียกหน้า Login -> สั่ง Redirect ทันที
+      else if (!isPublicRequest) {
+        console.warn("[Auth Guard] No token found. Redirecting to login...");
+
+        // เช็คว่าตอนนี้อยู่หน้า Login หรือยัง ถ้ายังให้ Redirect
+        if (!window.location.pathname.includes("/auth/login")) {
+          window.location.href = "/auth/login";
+        }
+
+        // 🛑 ยกเลิก Request นี้ทิ้งไปเลย (Abort) เพื่อไม่ให้ Server ตอบ 401 กลับมา
+        const controller = new AbortController();
+        config.signal = controller.signal;
+        controller.abort("Session expired or No token provided.");
       }
     }
     return config;
@@ -31,17 +56,25 @@ api.interceptors.request.use(
   }
 );
 
-// ⭐ ส่วนที่แก้ (Fixed Loop Issue)
+// ==========================================
+// 2. RESPONSE INTERCEPTOR (ด่านหลัง)
+// ==========================================
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    // กรณีที่ถูก Abort จาก Request Interceptor ด้านบน ไม่ต้องทำอะไรต่อ
+    if (axios.isCancel(error)) {
+      return new Promise(() => { }); // ค้าง Promise ไว้เงียบๆ
+    }
+
     if (error.response) {
       const { status } = error.response;
 
       if (status === 401) {
         console.warn("[API Error] 401 Unauthorized: Session expired.");
-        
+
         if (typeof window !== "undefined") {
+          // ล้างข้อมูลเก่า
           localStorage.removeItem("token");
           localStorage.removeItem("auth_token");
           localStorage.removeItem("user");
@@ -56,10 +89,9 @@ api.interceptors.response.use(
           ) {
             alert("Session expired. Please login again.");
             window.location.href = "/auth/login";
-            
-            // ⭐⭐⭐ เพิ่มบรรทัดนี้: ส่ง Promise ค้างไว้ เพื่อไม่ให้ Error เด้งขึ้นหน้าจอ
-            // ตัว Browser จะ Redirect หนีไปก่อนที่ Promise นี้จะจบ
-            return new Promise(() => {}); 
+
+            // ⭐ ส่ง Promise ค้างไว้ เพื่อไม่ให้ Error เด้งขึ้นหน้าจอระหว่างรอ Redirect
+            return new Promise(() => { });
           }
         }
       } else if (status === 403) {
@@ -201,7 +233,10 @@ export const isModuleEnabled = async (code) => {
   return !!mod && !!mod.is_enabled;
 };
 
+// ==========================================
 // Room Booking APIs
+// ==========================================
+
 export const getRooms = async () => {
   const res = await api.get("/room");
   return res.data;

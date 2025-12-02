@@ -1,5 +1,5 @@
 // 1. เพิ่ม useEffect เข้ามา
-import { useState, useEffect } from "react"; 
+import { useState, useEffect } from "react";
 import Input from "@/components/auth/Input";
 import Button from "@/components/auth/Button";
 import { loginUser } from "@/services/auth";
@@ -17,14 +17,14 @@ export default function LoginForm() {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     localStorage.removeItem("accessToken"); // เผื่อมี key นี้
-    
+
     // ลบ Cookies ด้วย (เพื่อความชัวร์)
     document.cookie.split(";").forEach((c) => {
       document.cookie = c
         .replace(/^ +/, "")
         .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
     });
-    
+
     console.log("Cleanup: Old session data cleared.");
   }, []); // [] หมายถึงทำแค่ครั้งเดียวตอนโหลดหน้า
 
@@ -45,7 +45,7 @@ export default function LoginForm() {
 
         // บันทึกข้อมูล user
         if (result.user) {
-           localStorage.setItem("user", JSON.stringify(result.user));
+          localStorage.setItem("user", JSON.stringify(result.user));
         }
 
         // Redirect ไปหน้า Dashboard
@@ -88,7 +88,7 @@ export default function LoginForm() {
         />
 
         <div className="pt-2">
-            <Button type="submit" text="Log in" full />
+          <Button type="submit" text="Sign in" full />
         </div>
       </form>
 
