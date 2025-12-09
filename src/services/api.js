@@ -16,88 +16,189 @@ const api = axios.create({
 });
 
 // ==========================================
-// 1. REQUEST INTERCEPTOR (ด่านหน้า)
+// AUTH GUARD (GLOBAL-ISH) USING SESSION LOCK
+// ==========================================
+
+const REDIRECT_LOCK_KEY = "__auth_redirect_lock__";
+
+// หน้า login ที่ไม่ควร redirect ซ้ำ
+const LOGIN_PATHS = ["/auth/login", "/login"];
+
+// ✅ public endpoint ที่ต้องยิงได้แม้ไม่มี token
+// (เพิ่มแบบไม่ใส่ / เผื่อ axios ส่งมาแบบนั้น)
+const PUBLIC_PATHS = [
+  "/auth/login",
+  "/auth/register",
+  "auth/login",
+  "auth/register",
+];
+
+// ------------------------------------------
+// helpers
+// ------------------------------------------
+
+const getRedirectLock = () => {
+  try {
+    return sessionStorage.getItem(REDIRECT_LOCK_KEY);
+  } catch (_) {
+    return null;
+  }
+};
+
+const setRedirectLock = (reason) => {
+  try {
+    sessionStorage.setItem(
+      REDIRECT_LOCK_KEY,
+      JSON.stringify({ reason, at: Date.now() })
+    );
+  } catch (_) {}
+};
+
+const clearRedirectLock = () => {
+  try {
+    sessionStorage.removeItem(REDIRECT_LOCK_KEY);
+  } catch (_) {}
+};
+
+const isOnLoginPage = () => {
+  if (typeof window === "undefined") return false;
+  const p = window.location.pathname || "";
+  return LOGIN_PATHS.some((lp) => p.includes(lp));
+};
+
+// ดึง pathname จาก config.url ให้ robust
+const extractPath = (rawUrl = "") => {
+  const u = String(rawUrl || "");
+
+  // ถ้าเป็น absolute URL
+  if (u.startsWith("http://") || u.startsWith("https://")) {
+    try {
+      return new URL(u).pathname || u;
+    } catch (_) {
+      return u;
+    }
+  }
+
+  // ถ้าเป็น relative
+  return u;
+};
+
+// normalize ให้เทียบง่าย
+const normalizePath = (p = "") => {
+  let s = String(p || "");
+  // ตัด query
+  const qIndex = s.indexOf("?");
+  if (qIndex >= 0) s = s.slice(0, qIndex);
+
+  // กันไม่มี /
+  if (!s.startsWith("/")) s = "/" + s;
+
+  // ตัดของซ้ำ / ท้าย
+  s = s.replace(/\/+$/, "");
+
+  return s;
+};
+
+const isPublicRequestByUrl = (rawUrl = "") => {
+  const path = normalizePath(extractPath(rawUrl));
+
+  // เช็คแบบ strict ก่อน
+  if (path === "/auth/login" || path === "/auth/register") return true;
+
+  // เผื่อมี prefix แปลก ๆ
+  const loose = String(rawUrl || "");
+  return PUBLIC_PATHS.some((p) => loose.includes(p));
+};
+
+const redirectToLoginOnce = (reason) => {
+  if (typeof window === "undefined") return;
+
+  if (isOnLoginPage()) return;
+
+  const lockRaw = getRedirectLock();
+  if (lockRaw) {
+    try {
+      const lock = JSON.parse(lockRaw);
+      // กันซ้ำในช่วงสั้นๆ
+      if (Date.now() - (lock?.at || 0) < 3000) return;
+    } catch (_) {}
+  }
+
+  setRedirectLock(reason);
+  window.location.replace(`/auth/login?reason=${reason}`);
+};
+
+// ==========================================
+// 1. REQUEST INTERCEPTOR
 // ==========================================
 api.interceptors.request.use(
   (config) => {
-    if (typeof window !== "undefined") {
-      const token =
-        localStorage.getItem("token") || localStorage.getItem("auth_token");
+    if (typeof window === "undefined") return config;
 
-      // รายชื่อ API Path ที่ยอมให้ยิงได้โดยไม่ต้องมี Token (เช่น Login)
-      const publicPaths = ["/auth/login", "/auth/register"];
-      const isPublicRequest = publicPaths.some((path) =>
-        config.url.includes(path)
-      );
+    const token =
+      localStorage.getItem("token") ||
+      localStorage.getItem("auth_token") ||
+      localStorage.getItem("accessToken");
 
-      // ถ้ามี Token ให้แนบไปกับ Header
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-      }
-      // 🚨 ถ้าไม่มี Token และไม่ใช่การเรียกหน้า Login -> สั่ง Redirect ทันที
-      else if (!isPublicRequest) {
-        console.warn("[Auth Guard] No token found. Redirecting to login...");
+    const url = config?.url || "";
+    const isPublicRequest = isPublicRequestByUrl(url);
 
-        // เช็คว่าตอนนี้อยู่หน้า Login หรือยัง ถ้ายังให้ Redirect
-        if (!window.location.pathname.includes("/auth/login")) {
-          window.location.href = "/auth/login";
-        }
+    // ✅ ถ้าเป็น public path (login/register) ให้ผ่านเสมอ
+    if (isPublicRequest) return config;
 
-        // 🛑 ยกเลิก Request นี้ทิ้งไปเลย (Abort) เพื่อไม่ให้ Server ตอบ 401 กลับมา
-        const controller = new AbortController();
-        config.signal = controller.signal;
-        controller.abort("Session expired or No token provided.");
-      }
+    // ✅ มี token ก็แนบให้
+    if (token) {
+      config.headers = config.headers || {};
+      config.headers.Authorization = `Bearer ${token}`;
+      return config;
     }
-    return config;
+
+    // ✅ ไม่มี token และไม่ใช่ public -> redirect ครั้งเดียว
+    redirectToLoginOnce("missing_token");
+
+    const err = new Error("NO_TOKEN");
+    err.code = "NO_TOKEN";
+    return Promise.reject(err);
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
 // ==========================================
-// 2. RESPONSE INTERCEPTOR (ด่านหลัง)
+// 2. RESPONSE INTERCEPTOR
 // ==========================================
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // ถ้ามี response ปกติ แปลว่า session ใช้ได้
+    if (typeof window !== "undefined") {
+      clearRedirectLock();
+    }
+    return response;
+  },
   (error) => {
-    // กรณีที่ถูก Abort จาก Request Interceptor ด้านบน ไม่ต้องทำอะไรต่อ
-    if (axios.isCancel(error)) {
-      return new Promise(() => { }); // ค้าง Promise ไว้เงียบๆ
+    if (error?.code === "NO_TOKEN") {
+      return Promise.reject(error);
     }
 
-    if (error.response) {
-      const { status } = error.response;
+    const isCanceled =
+      error?.code === "ERR_CANCELED" ||
+      error?.name === "CanceledError" ||
+      error?.name === "AbortError";
 
-      if (status === 401) {
-        console.warn("[API Error] 401 Unauthorized: Session expired.");
-
-        if (typeof window !== "undefined") {
-          // ล้างข้อมูลเก่า
-          localStorage.removeItem("token");
-          localStorage.removeItem("auth_token");
-          localStorage.removeItem("user");
-
-          const currentPath = window.location.pathname;
-
-          // เช็คว่าไม่ได้อยู่หน้า Login
-          if (
-            currentPath !== "/" &&
-            currentPath !== "/login" &&
-            currentPath !== "/auth/login"
-          ) {
-            alert("Session expired. Please login again.");
-            window.location.href = "/auth/login";
-
-            // ⭐ ส่ง Promise ค้างไว้ เพื่อไม่ให้ Error เด้งขึ้นหน้าจอระหว่างรอ Redirect
-            return new Promise(() => { });
-          }
-        }
-      } else if (status === 403) {
-        console.warn("[API Error] 403 Forbidden: No permission.");
-      }
+    if (isCanceled) {
+      return Promise.reject(error);
     }
+
+    const status = error?.response?.status;
+
+    if (status === 401 && typeof window !== "undefined") {
+      localStorage.removeItem("token");
+      localStorage.removeItem("auth_token");
+      localStorage.removeItem("accessToken");
+      localStorage.removeItem("user");
+
+      redirectToLoginOnce("expired");
+    }
+
     return Promise.reject(error);
   }
 );
@@ -120,13 +221,8 @@ export const fetchUserProfile = async () => {
     }
   }
 
-  try {
-    const res = await api.get("/auth/me");
-    return res.data;
-  } catch (error) {
-    console.warn("Cannot fetch user profile from API", error);
-    throw error;
-  }
+  const res = await api.get("/auth/me");
+  return res.data;
 };
 
 // ==========================================
@@ -268,7 +364,9 @@ export const createRoom = async (data) => {
 };
 
 export const updateRoomStatus = async (id, status) => {
-  const res = await api.patch(`/room/${id}/status`, { room_status_code: status });
+  const res = await api.patch(`/room/${id}/status`, {
+    room_status_code: status,
+  });
   return res.data;
 };
 
@@ -277,17 +375,21 @@ export const deleteRoom = async (id) => {
   return res.data;
 };
 
+// ==========================================
+// Upload (Client -> Next API Route)
+// ==========================================
+
 export const uploadImage = async (file) => {
   const formData = new FormData();
   formData.append("file", file);
 
-  const response = await fetch('/api/upload', {
-    method: 'POST',
+  const response = await fetch("/api/upload", {
+    method: "POST",
     body: formData,
   });
 
   if (!response.ok) {
-    throw new Error('Client-side upload failed');
+    throw new Error("Client-side upload failed");
   }
 
   return response.json();

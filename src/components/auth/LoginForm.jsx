@@ -1,58 +1,73 @@
-// 1. เพิ่ม useEffect เข้ามา
-import { useState, useEffect } from "react";
+"use client";
+
+import { useState } from "react";
 import Input from "@/components/auth/Input";
 import Button from "@/components/auth/Button";
 import { loginUser } from "@/services/auth";
 import { useAuth } from "@/context/AuthContext";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 export default function LoginForm() {
   const { setToken } = useAuth();
+  const router = useRouter();
+
   const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
-
-  // ⭐ แก้ Loop: สั่งลบ Token ทันทีที่ Component นี้เริ่มทำงาน
-  useEffect(() => {
-    // ลบ Token และ User เก่าที่อาจจะค้างอยู่และหมดอายุแล้ว
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    localStorage.removeItem("accessToken"); // เผื่อมี key นี้
-
-    // ลบ Cookies ด้วย (เพื่อความชัวร์)
-    document.cookie.split(";").forEach((c) => {
-      document.cookie = c
-        .replace(/^ +/, "")
-        .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
-    });
-
-    console.log("Cleanup: Old session data cleared.");
-  }, []); // [] หมายถึงทำแค่ครั้งเดียวตอนโหลดหน้า
+  const [submitting, setSubmitting] = useState(false);
 
   const handleChange = (e) =>
     setForm({ ...form, [e.target.name]: e.target.value });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (submitting) return;
+
     setError("");
+    setSubmitting(true);
 
     try {
-      const result = await loginUser(form);
+      // ✅ สำคัญ: ไม่ให้ auth.js เขียน localStorage ซ้ำ
+      const result = await loginUser(form, { persist: false });
 
-      if (result?.token) {
-        // บันทึก Token ใหม่
-        setToken(result.token);
-        localStorage.setItem("token", result.token); // บันทึก token ลง storage ด้วยถ้า context ไม่ได้ทำให้
+      const token =
+        result?.token ||
+        result?.access_token ||
+        result?.data?.token ||
+        null;
 
-        // บันทึกข้อมูล user
-        if (result.user) {
+      if (token) {
+        // ✅ ให้ AuthContext จัดการ token + localStorage ให้ทั้งหมด
+        setToken(token);
+
+        // ✅ เก็บ user เฉพาะเมื่อมีจริง
+        if (typeof window !== "undefined" && result?.user) {
           localStorage.setItem("user", JSON.stringify(result.user));
         }
 
-        // Redirect ไปหน้า Dashboard
-        window.location.href = "/dashboard";
+        router.replace("/dashboard");
+        return;
       }
+
+      setError("ไม่พบ token จากระบบ กรุณาลองใหม่");
     } catch (err) {
-      setError(err.message || "เกิดข้อผิดพลาด กรุณาลองใหม่");
+      const status = err?.response?.status;
+
+      // ✅ 403 = ยังไม่ถูกอนุมัติ
+      if (status === 403) {
+        setError("บัญชียังไม่ถูกอนุมัติโดยผู้ดูแลระบบ กรุณารอการอนุมัติ");
+      } 
+      // ✅ 400/401 หรืออื่นๆ ใช้ข้อความจาก backend ก่อน
+      else {
+        const msg =
+          err?.response?.data?.message ||
+          err?.message ||
+          "เกิดข้อผิดพลาด กรุณาลองใหม่";
+
+        setError(msg);
+      }
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -88,22 +103,33 @@ export default function LoginForm() {
         />
 
         <div className="pt-2">
-          <Button type="submit" text="Sign in" full />
+          <Button
+            type="submit"
+            text={submitting ? "Signing in..." : "Sign in"}
+            full
+            disabled={submitting}
+          />
         </div>
       </form>
 
       <div className="flex items-center my-6">
         <div className="flex-1 border-t border-gray-200"></div>
-        <div className="px-4 text-xs font-bold text-gray-400 uppercase">OR</div>
+        <div className="px-4 text-xs font-bold text-gray-400 uppercase">
+          OR
+        </div>
         <div className="flex-1 border-t border-gray-200"></div>
       </div>
 
       <p className="text-center text-sm text-gray-600">
         ยังไม่มีบัญชี?{" "}
-        <Link href="/auth/register" className="text-[#0095F6] font-semibold hover:text-blue-700">
+        <Link
+          href="/auth/register"
+          className="text-[#0095F6] font-semibold hover:text-blue-700"
+        >
           Sign up
         </Link>
       </p>
     </div>
   );
 }
+ 

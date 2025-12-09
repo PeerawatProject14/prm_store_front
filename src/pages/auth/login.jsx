@@ -1,25 +1,26 @@
-"use client"; // 1. ต้องเพิ่มบรรทัดนี้เพื่อให้ใช้ useEffect ได้
+"use client";
 
 import { useEffect } from "react";
 import LoginForm from "@/components/auth/LoginForm";
 
 export default function LoginPage() {
-  
-  // 2. เพิ่ม Logic นี้เพื่อบังคับล้าง Token ทันทีที่หน้า Login โหลดขึ้นมา
   useEffect(() => {
-    // ลบ Token ใน LocalStorage
-    localStorage.removeItem("token");
-    localStorage.removeItem("accessToken"); // เผื่อใช้ชื่ออื่น
-    localStorage.removeItem("user");
-    
-    // ลบ Cookies (ถ้ามีการใช้)
-    document.cookie.split(";").forEach((c) => {
-      document.cookie = c
-        .replace(/^ +/, "")
-        .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
-    });
+    if (typeof window === "undefined") return;
 
-    console.log("Session cleared automatically on Login page.");
+    // ✅ ล้าง session แค่จุดเดียวพอ
+    localStorage.removeItem("token");
+    localStorage.removeItem("auth_token");
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("user");
+
+    // ✅ ถ้ามี redirect lock จาก guard ให้ล้างด้วย
+    sessionStorage.removeItem("__auth_redirect_lock__");
+
+    // ❗ แนะนำ: ไม่ต้องล้าง cookies แบบกวาดโดเมนทั้งหมด
+    // เพราะเสี่ยงชนระบบ auth อื่นๆ/Next internals
+    // ถ้าคุณจำเป็นต้องล้างจริงๆ ค่อยล้างเฉพาะ cookie ที่เกี่ยวกับระบบคุณ
+
+    console.log("Session cleared on Login page.");
   }, []);
 
   return (

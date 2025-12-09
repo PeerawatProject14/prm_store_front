@@ -46,17 +46,17 @@ export default function AdminDashboardPage() {
     const init = async () => {
       try {
         const [userData] = await Promise.all([
-           fetchUserProfile().catch(() => null), 
-           loadUsers(),
-           loadRoles()
+          fetchUserProfile().catch(() => null),
+          loadUsers(),
+          loadRoles()
         ]);
 
         if (userData) {
-            console.log("✅ Logged in as:", userData);
-            // ใช้ .id หรือ .user_id ตามที่ API ส่งมา
-            setCurrentUserId(userData.id || userData.user_id); 
+          console.log("✅ Logged in as:", userData);
+          // ใช้ .id หรือ .user_id ตามที่ API ส่งมา
+          setCurrentUserId(userData.id || userData.user_id);
         } else {
-            console.warn("⚠️ ไม่พบข้อมูลผู้ใช้ปัจจุบัน");
+          console.warn("⚠️ ไม่พบข้อมูลผู้ใช้ปัจจุบัน");
         }
 
       } catch (e) {
@@ -148,21 +148,21 @@ export default function AdminDashboardPage() {
   if (loading) {
     return (
       <main className="min-h-screen bg-[#FAFAFA] flex flex-col items-center justify-center gap-3">
-         <div className="animate-spin h-8 w-8 border-2 border-gray-300 border-t-[#0095F6] rounded-full"></div>
-         <span className="text-gray-400 font-medium text-sm">Loading Admin Panel...</span>
+        <div className="animate-spin h-8 w-8 border-2 border-gray-300 border-t-[#0095F6] rounded-full"></div>
+        <span className="text-gray-400 font-medium text-sm">Loading Admin Panel...</span>
       </main>
     );
   }
 
   const title = activeTab === "users" ? "User Management" : "System Settings";
   const subtitle = activeTab === "users"
-      ? "จัดการสิทธิ์และสถานะผู้ใช้งานในระบบ"
-      : "เปิด/ปิดการใช้งานโมดูลหลัก เช่น Hot Issue และ Room Booking";
+    ? "จัดการสิทธิ์และสถานะผู้ใช้งานในระบบ"
+    : "เปิด/ปิดการใช้งานโมดูลหลัก เช่น Hot Issue และ Room Booking";
 
   return (
     <main className="min-h-screen bg-[#FAFAFA] font-sans">
       <div className="w-full max-w-7xl mx-auto px-4 py-6 md:px-8 md:py-10">
-        
+
         <header className="mb-8 flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1 className="text-3xl font-bold text-gray-900 tracking-tight">{title}</h1>
@@ -175,10 +175,9 @@ export default function AdminDashboardPage() {
                 type="button"
                 onClick={() => setActiveTab("users")}
                 className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200
-                  ${
-                    activeTab === "users"
-                      ? "bg-[#0095F6] text-white shadow-sm"
-                      : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
+                  ${activeTab === "users"
+                    ? "bg-[#0095F6] text-white shadow-sm"
+                    : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
                   }`}
               >
                 <HiUsers className="text-lg" />
@@ -188,10 +187,9 @@ export default function AdminDashboardPage() {
                 type="button"
                 onClick={() => setActiveTab("settings")}
                 className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200
-                  ${
-                    activeTab === "settings"
-                      ? "bg-[#0095F6] text-white shadow-sm"
-                      : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
+                  ${activeTab === "settings"
+                    ? "bg-[#0095F6] text-white shadow-sm"
+                    : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
                   }`}
               >
                 <HiCog6Tooth className="text-lg" />
@@ -210,19 +208,19 @@ export default function AdminDashboardPage() {
         </header>
 
         <div className="animate-fade-in-up">
-            {activeTab === "users" ? (
+          {activeTab === "users" ? (
             <UserTable
-                users={users}
-                roles={roles}
-                currentUserId={currentUserId} // ✅ เพิ่มบรรทัดนี้ เพื่อส่ง ID ไปให้ Table
-                onRoleChange={handleRoleChange}
-                onToggleStatus={handleToggleStatus}
-                onApprove={handleApprove}
-                onDeleteUser={handleDeleteUser}
+              users={users}
+              roles={roles}
+              currentUserId={currentUserId} // ✅ เพิ่มบรรทัดนี้ เพื่อส่ง ID ไปให้ Table
+              onRoleChange={handleRoleChange}
+              onToggleStatus={handleToggleStatus}
+              onApprove={handleApprove}
+              onDeleteUser={handleDeleteUser}
             />
-            ) : (
+          ) : (
             <Settings />
-            )}
+          )}
         </div>
       </div>
     </main>

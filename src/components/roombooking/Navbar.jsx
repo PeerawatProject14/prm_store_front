@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
-const Navbar = ({ currentView, onViewChange }) => {
+const Navbar = ({ currentView, onViewChange, currentUser }) => {
     const router = useRouter();
     const [currentTime, setCurrentTime] = useState("");
     const [currentDate, setCurrentDate] = useState("");
@@ -36,6 +36,9 @@ const Navbar = ({ currentView, onViewChange }) => {
         onViewChange(view);
         setIsMenuOpen(false);
     };
+
+    const role = currentUser?.role_name || currentUser?.role || "";
+    const isAdmin = role.toLowerCase() === 'admin';
 
     return (
         <nav className="sticky top-0 z-50 bg-white/30 backdrop-blur-2xl border-b border-white/20 px-4 py-3 transition-all shadow-sm supports-[backdrop-filter]:bg-white/30">
@@ -87,18 +90,20 @@ const Navbar = ({ currentView, onViewChange }) => {
                             <span>Room Booking</span>
                         </button>
 
-                        <button
-                            onClick={() => onViewChange("admin")}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all border ${currentView === "admin"
-                                ? "bg-purple-50/80 text-purple-600 border-purple-200 shadow-sm"
-                                : "bg-transparent text-slate-600 border-transparent hover:bg-white/60 hover:text-purple-600"
-                                }`}
-                        >
-                            <span>🛡️</span>
-                            <span>Admin</span>
-                        </button>
+                        {isAdmin && (
+                            <button
+                                onClick={() => onViewChange("admin")}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all border ${currentView === "admin"
+                                    ? "bg-purple-50/80 text-purple-600 border-purple-200 shadow-sm"
+                                    : "bg-transparent text-slate-600 border-transparent hover:bg-white/60 hover:text-purple-600"
+                                    }`}
+                            >
+                                <span>🛡️</span>
+                                <span>Admin</span>
+                            </button>
+                        )}
 
-                        <button className="flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium bg-transparent text-slate-600 border border-transparent hover:bg-white/60 hover:text-orange-600 transition-all">
+                        {/* <button className="flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium bg-transparent text-slate-600 border border-transparent hover:bg-white/60 hover:text-orange-600 transition-all">
                             <span>📊</span>
                             <span>Reports</span>
                         </button>
@@ -106,7 +111,7 @@ const Navbar = ({ currentView, onViewChange }) => {
                         <button className="flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium bg-transparent text-slate-600 border border-transparent hover:bg-white/60 hover:text-amber-600 transition-all">
                             <span>👑</span>
                             <span>Master</span>
-                        </button>
+                        </button> */}
 
                         <button
                             onClick={() => router.push("/")}
@@ -165,18 +170,20 @@ const Navbar = ({ currentView, onViewChange }) => {
                         <span>Room Booking</span>
                     </button>
 
-                    <button
-                        onClick={() => handleNavClick("admin")}
-                        className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all ${currentView === "admin"
-                            ? "bg-purple-50 text-purple-600"
-                            : "text-slate-600 hover:bg-white/50"
-                            }`}
-                    >
-                        <span>🛡️</span>
-                        <span>Admin</span>
-                    </button>
+                    {isAdmin && (
+                        <button
+                            onClick={() => handleNavClick("admin")}
+                            className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all ${currentView === "admin"
+                                ? "bg-purple-50 text-purple-600"
+                                : "text-slate-600 hover:bg-white/50"
+                                }`}
+                        >
+                            <span>🛡️</span>
+                            <span>Admin</span>
+                        </button>
+                    )}
 
-                    <button className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-slate-600 hover:bg-white/50 transition-all">
+                    {/* <button className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-slate-600 hover:bg-white/50 transition-all">
                         <span>📊</span>
                         <span>Reports</span>
                     </button>
@@ -184,7 +191,7 @@ const Navbar = ({ currentView, onViewChange }) => {
                     <button className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-slate-600 hover:bg-white/50 transition-all">
                         <span>👑</span>
                         <span>Master</span>
-                    </button>
+                    </button> */}
 
                     <div className="h-px bg-slate-200/50 my-1"></div>
 

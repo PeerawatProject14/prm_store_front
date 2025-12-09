@@ -5,7 +5,7 @@ import React, { useState, useRef } from "react";
 // เพิ่ม prop: onDeleteRoom
 const AdminView = ({ bookings, rooms, onApprove, onReject, onAddRoom, onToggleRoomStatus, onDeleteRoom }) => {
     const [activeTab, setActiveTab] = useState("pending");
-    const [viewMode, setViewMode] = useState("bookings");
+    const [viewMode, setViewMode] = useState("rooms");
     const [isAddRoomModalOpen, setIsAddRoomModalOpen] = useState(false);
     const [isProcessingImg, setIsProcessingImg] = useState(false); // สถานะกำลังแปลงไฟล์
 
@@ -113,7 +113,7 @@ const AdminView = ({ bookings, rooms, onApprove, onReject, onAddRoom, onToggleRo
                 <div className="flex items-center justify-between mb-6">
                     <h1 className="text-2xl font-bold text-slate-800">Admin Dashboard</h1>
                     <div className="flex bg-slate-200 p-1 rounded-lg">
-                        <button onClick={() => setViewMode("bookings")} className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${viewMode === "bookings" ? "bg-white shadow-sm text-slate-800" : "text-slate-600 hover:text-slate-800"}`}>Bookings</button>
+                        {/* <button onClick={() => setViewMode("bookings")} className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${viewMode === "bookings" ? "bg-white shadow-sm text-slate-800" : "text-slate-600 hover:text-slate-800"}`}>Bookings</button> */}
                         <button onClick={() => setViewMode("rooms")} className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${viewMode === "rooms" ? "bg-white shadow-sm text-slate-800" : "text-slate-600 hover:text-slate-800"}`}>Rooms</button>
                     </div>
                 </div>

@@ -13,7 +13,8 @@ import {
     updateBookingStatus,
     createRoom,
     updateRoomStatus,
-    deleteRoom // ✅ 1. เพิ่ม Import deleteRoom
+    deleteRoom,
+    fetchUserProfile // ✅ Import fetchUserProfile
 } from "@/services/api";
 
 // สมมติข้อมูลเริ่มต้น
@@ -28,13 +29,20 @@ export default function RoomBookingPage() {
     const [currentView, setCurrentView] = useState("calendar");
     const [bookings, setBookings] = useState(initialBookings);
     const [rooms, setRooms] = useState(initialRooms);
+    const [currentUser, setCurrentUser] = useState(null); // ✅ State for current user
 
     const fetchData = async () => {
         try {
-            const [roomsData, bookingsData] = await Promise.all([
+            // Fetch User, Rooms, Bookings in parallel
+            const [userData, roomsData, bookingsData] = await Promise.all([
+                fetchUserProfile().catch(() => null),
                 getRooms(),
                 getAllBookings()
             ]);
+
+            if (userData) {
+                setCurrentUser(userData);
+            }
 
             // Transform rooms data
             const transformedRooms = roomsData.map(r => ({
@@ -61,7 +69,7 @@ export default function RoomBookingPage() {
                 attendees: b.attendees || 0,
                 cost: 0,
                 status: b.status,
-                date: b.booking_date?.substring(0, 10),
+                date: new Date(b.booking_date).toLocaleDateString('en-CA'), // YYYY-MM-DD format (Local Time)
             }));
 
             setRooms(transformedRooms);
@@ -84,6 +92,20 @@ export default function RoomBookingPage() {
     }, [router]);
 
     // --- 3. Handlers ---
+
+    const handleViewChange = (view) => {
+        if (view === "admin") {
+            const roleName = currentUser?.role_name || currentUser?.role || "";
+            // console.log("Current User Role:", roleName); // Debug
+            const isAdmin = roleName.toLowerCase() === "admin";
+
+            if (!isAdmin) {
+                alert("Access Denied: You do not have permission to access the Admin view.");
+                return;
+            }
+        }
+        setCurrentView(view);
+    };
 
     const handleBookingConfirmed = async (newBookings) => {
         try {
@@ -216,7 +238,11 @@ export default function RoomBookingPage() {
 
     return (
         <main className="min-h-screen bg-slate-50 flex flex-col font-sans h-screen">
-            <Navbar currentView={currentView} onViewChange={setCurrentView} />
+            <Navbar
+                currentView={currentView}
+                onViewChange={handleViewChange}
+                currentUser={currentUser} // ✅ Pass currentUser
+            />
 
             <div className="flex-1 overflow-hidden flex flex-col">
                 {currentView === "calendar" ? (

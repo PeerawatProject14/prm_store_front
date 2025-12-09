@@ -1,46 +1,57 @@
-import { createContext, useContext, useState, useEffect } from "react";
+"use client";
+
+import { createContext, useContext, useState, useEffect, useCallback } from "react";
 
 const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
-  const [token, setToken] = useState(null);
-  // 1. เพิ่ม State สำหรับรอโหลดข้อมูล
-  const [loading, setLoading] = useState(true); 
+  const [token, setTokenState] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   // โหลด token จาก localStorage ตอนเปิดเว็บ
   useEffect(() => {
-    // เช็คว่ารันในฝั่ง Client หรือไม่ (กัน Error ใน Next.js)
     if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("token");
+      const stored =
+        localStorage.getItem("token") || localStorage.getItem("auth_token");
+
       if (stored) {
-        setToken(stored);
+        setTokenState(stored);
       }
     }
-    // 2. เมื่อเช็คเสร็จแล้ว (ไม่ว่าจะเจอหรือไม่เจอ) ให้ปิดสถานะ Loading
     setLoading(false);
   }, []);
 
-  // เมื่อ token เปลี่ยน → อัปเดต localStorage
-  useEffect(() => {
-    // 3. สำคัญมาก! ถ้ายังโหลดของเก่าไม่เสร็จ ห้ามไปยุ่งกับ localStorage 
-    // ไม่งั้นมันจะเอาค่า null ไปทับของเก่าหายหมด
-    if (loading) return; 
+  // ✅ ตัว setToken ใหม่: จัดการ state + localStorage ให้ครบในที่เดียว
+  const setToken = useCallback((nextToken) => {
+    const value = nextToken || null;
+    setTokenState(value);
 
-    if (token) {
-      localStorage.setItem("token", token);
+    if (typeof window === "undefined") return;
+
+    if (value) {
+      // รองรับทั้งสอง key กันชนโค้ดเก่า
+      localStorage.setItem("token", value);
+      localStorage.setItem("auth_token", value);
+
+      // ถ้ามี redirect lock จาก guard รุ่นก่อน ให้ล้าง
+      try {
+        sessionStorage.removeItem("__auth_redirect_lock__");
+      } catch (_) {}
     } else {
       localStorage.removeItem("token");
+      localStorage.removeItem("auth_token");
+      // จะลบ user ด้วยก็ได้ ป้องกันค้าง
+      // localStorage.removeItem("user");
     }
-  }, [token, loading]); // เพิ่ม loading เข้าไปใน dependency
+  }, []);
 
-  // 4. ถ้ากำลังโหลดอยู่ ให้หยุดไว้ตรงนี้ก่อน อย่าเพิ่งไปเรนเดอร์ลูกๆ (children)
-  // ไม่งั้นหน้า Dashboard จะทำงานก่อน แล้วเห็นว่าไม่มี Token เลยเตะกลับหน้า Login
+  // ยังใช้แนวเดิม: กันลูกเรนเดอร์ก่อนตอนกำลังโหลด token
   if (loading) {
-    return null; // หรือจะใส่ Loading Spinner สวยๆ ตรงนี้ก็ได้ครับ
+    return null;
   }
 
   return (
-    <AuthContext.Provider value={{ token, setToken }}>
+    <AuthContext.Provider value={{ token, setToken, loading }}>
       {children}
     </AuthContext.Provider>
   );
