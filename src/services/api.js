@@ -51,13 +51,13 @@ const setRedirectLock = (reason) => {
       REDIRECT_LOCK_KEY,
       JSON.stringify({ reason, at: Date.now() })
     );
-  } catch (_) {}
+  } catch (_) { }
 };
 
 const clearRedirectLock = () => {
   try {
     sessionStorage.removeItem(REDIRECT_LOCK_KEY);
-  } catch (_) {}
+  } catch (_) { }
 };
 
 const isOnLoginPage = () => {
@@ -121,7 +121,7 @@ const redirectToLoginOnce = (reason) => {
       const lock = JSON.parse(lockRaw);
       // กันซ้ำในช่วงสั้นๆ
       if (Date.now() - (lock?.at || 0) < 3000) return;
-    } catch (_) {}
+    } catch (_) { }
   }
 
   setRedirectLock(reason);
@@ -376,21 +376,25 @@ export const deleteRoom = async (id) => {
 };
 
 // ==========================================
-// Upload (Client -> Next API Route)
+// Upload (Client -> Node Backend Directly)
 // ==========================================
 
 export const uploadImage = async (file) => {
   const formData = new FormData();
   formData.append("file", file);
 
-  const response = await fetch("/api/upload", {
-    method: "POST",
-    body: formData,
+  // ใช้ instance 'api' ที่มี interceptor จัดการ token ให้แล้ว
+  // ยิงไปที่ /upload ของ Backend (ตามที่เราตั้งใน server.js)
+  const response = await api.post("/upload", formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
   });
 
-  if (!response.ok) {
-    throw new Error("Client-side upload failed");
-  }
+  return response.data; // คาดหวัง { success: true, filepath: '/uploads/...' }
+};
 
-  return response.json();
+export const fetchAmenities = async () => {
+  const res = await api.get("/amenities");
+  return res.data;
 };

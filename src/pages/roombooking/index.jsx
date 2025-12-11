@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useRouter } from "next/router"; // หรือ "next/navigation" สำหรับ App Router
+import { useRouter } from "next/router";
 import Navbar from "@/components/roombooking/Navbar";
 import CalendarView from "@/components/roombooking/CalendarView";
 import ListingView from "@/components/roombooking/ListingView";
@@ -14,62 +14,70 @@ import {
     createRoom,
     updateRoomStatus,
     deleteRoom,
-    fetchUserProfile // ✅ Import fetchUserProfile
+    fetchUserProfile,
+    fetchAmenities
 } from "@/services/api";
 
-// สมมติข้อมูลเริ่มต้น
 const initialBookings = [];
 const initialRooms = [];
 
 export default function RoomBookingPage() {
     const router = useRouter();
 
-    // --- 1. State Definitions ---
+    // --- State Definitions ---
     const [loading, setLoading] = useState(true);
     const [currentView, setCurrentView] = useState("calendar");
     const [bookings, setBookings] = useState(initialBookings);
     const [rooms, setRooms] = useState(initialRooms);
-    const [currentUser, setCurrentUser] = useState(null); // ✅ State for current user
+    const [currentUser, setCurrentUser] = useState(null);
+    const [amenitiesList, setAmenitiesList] = useState([]);
 
+    // --- Fetch Data ---
     const fetchData = async () => {
         try {
-            // Fetch User, Rooms, Bookings in parallel
-            const [userData, roomsData, bookingsData] = await Promise.all([
+            const [userData, roomsData, bookingsData, amenitiesData] = await Promise.all([
                 fetchUserProfile().catch(() => null),
                 getRooms(),
-                getAllBookings()
+                getAllBookings(),
+                fetchAmenities()
             ]);
 
             if (userData) {
                 setCurrentUser(userData);
             }
 
-            // Transform rooms data
+            setAmenitiesList(amenitiesData || []);
+
+            // 1. Transform Rooms
             const transformedRooms = roomsData.map(r => ({
                 id: r.room_id,
                 name: r.room_name,
-                floor: "Floor ?",
+                floor: r.floor ? `Floor ${r.floor}` : "-",
                 capacity: r.capacity,
                 type: r.room_type,
-                amenities: [], // ต้องดึงจาก API แยก หรือแก้ API getRooms ให้ส่งมาด้วย
-                image: r.image_url || "/images/meeting.jpg",
-                isActive: r.room_status === 'AVAILABLE'
+                amenities: r.amenities || [],
+                // รองรับทั้งรูป Base64 (ที่เพิ่งอัปโหลด) และ URL เดิม
+                image: r.image_base64 || r.image_url || null,
+                image_base64: r.image_base64,
+                image_url: r.image_url,
+                // เช็คสถานะ Active
+                isActive: ['active', 'AVAILABLE'].includes(r.room_status) || ['active', 'AVAILABLE'].includes(r.room_status_code)
             }));
 
-            // Transform bookings data
+            // 2. Transform Bookings
             const transformedBookings = bookingsData.map(b => ({
                 id: b.booking_id,
                 roomId: b.room_id,
                 title: b.room_name,
                 startTime: b.start_time?.substring(0, 5),
                 endTime: b.end_time?.substring(0, 5),
-                bookedBy: `${b.first_name} ${b.last_name}`,
-                department: "Unknown",
+                bookedBy: b.first_name ? `${b.first_name} ${b.last_name}` : "Unknown User",
+                department: "", // Not used
                 purpose: b.purpose,
                 attendees: b.attendees || 0,
                 cost: 0,
                 status: b.status,
-                date: new Date(b.booking_date).toLocaleDateString('en-CA'), // YYYY-MM-DD format (Local Time)
+                date: new Date(b.booking_date).toLocaleDateString('en-CA'),
             }));
 
             setRooms(transformedRooms);
@@ -81,7 +89,7 @@ export default function RoomBookingPage() {
         }
     };
 
-    // --- 2. useEffect Check Token ---
+    // --- useEffect Check Token ---
     useEffect(() => {
         const token = localStorage.getItem("token");
         if (!token) {
@@ -91,12 +99,11 @@ export default function RoomBookingPage() {
         }
     }, [router]);
 
-    // --- 3. Handlers ---
+    // --- Handlers ---
 
     const handleViewChange = (view) => {
         if (view === "admin") {
             const roleName = currentUser?.role_name || currentUser?.role || "";
-            // console.log("Current User Role:", roleName); // Debug
             const isAdmin = roleName.toLowerCase() === "admin";
 
             if (!isAdmin) {
@@ -116,7 +123,7 @@ export default function RoomBookingPage() {
                     start_time: booking.startTime,
                     end_time: booking.endTime,
                     purpose: booking.purpose,
-                    attendees: booking.attendees
+                    attendees: booking.attendees || 1,
                 });
             }
             await fetchData();
@@ -147,58 +154,29 @@ export default function RoomBookingPage() {
         }
     };
 
-    // ✅ 2. ปรับปรุง handleAddRoom ให้รองรับการ Upload รูปภาพ
     const handleAddRoom = async (newRoomData) => {
         try {
-            let finalImageUrl = newRoomData.image || "/images/meeting.jpg"; // Default image
-
-            // ถ้ามีการแนบไฟล์รูปภาพมา ให้ Upload ก่อน
-            if (newRoomData.imageFile) {
-                const formData = new FormData();
-                formData.append("file", newRoomData.imageFile);
-
-                const uploadRes = await fetch("/api/upload", {
-                    method: "POST",
-                    body: formData,
-                });
-
-                const uploadResult = await uploadRes.json();
-
-                if (uploadResult.success) {
-                    finalImageUrl = uploadResult.filepath; // ได้ path เช่น /uploads/room-xxx.webp
-                } else {
-                    console.warn("Image upload failed, using default image.");
-                }
-            }
-
-            // ส่งข้อมูลไปสร้างห้องใน Database
             await createRoom({
                 room_name: newRoomData.name,
-                capacity: newRoomData.capacity,
-                amenity_ids: [], // ถ้ามี amenity_ids ต้องจัดการ mapping ตรงนี้
-                image_url: finalImageUrl,
-                room_status_code: 'AVAILABLE'
+                capacity: parseInt(newRoomData.capacity),
+                floor: newRoomData.floor || "",
+                amenity_ids: newRoomData.amenity_ids || [],
+                image_base64: newRoomData.image_base64,
+                room_status_code: 'active'
             });
 
-            await fetchData(); // โหลดข้อมูลใหม่เพื่อให้เห็นห้องล่าสุด
+            await fetchData();
             alert("Room created successfully!");
         } catch (error) {
             console.error("Add room failed:", error);
-            alert("Failed to add room. Please check logs.");
+            alert("Failed to add room: " + (error.response?.data?.message || error.message));
         }
     };
 
-    // ✅ 3. เพิ่มฟังก์ชัน Delete Room
     const handleDeleteRoom = async (roomId) => {
         try {
             await deleteRoom(roomId);
-
-            // อัปเดต state ทันทีเพื่อความรวดเร็ว (Optimistic Update)
             setRooms(prev => prev.filter(r => r.id !== roomId));
-
-            // หรือจะเรียก fetchData() อีกครั้งเพื่อความชัวร์ก็ได้
-            // await fetchData(); 
-
             alert("Room deleted successfully");
         } catch (error) {
             console.error("Delete room failed:", error);
@@ -209,12 +187,9 @@ export default function RoomBookingPage() {
     const handleToggleRoomStatus = async (roomId) => {
         try {
             const room = rooms.find(r => r.id === roomId);
-            // สลับสถานะ (ถ้า Active อยู่ ให้เป็น MAINTENANCE, ถ้าไม่ ก็ AVAILABLE)
-            const newStatus = room.isActive ? 'MAINTENANCE' : 'AVAILABLE';
+            const newStatus = room.isActive ? 'inactive' : 'active';
 
             await updateRoomStatus(roomId, newStatus);
-
-            // Update UI
             setRooms(prev => prev.map(r => r.id === roomId ? { ...r, isActive: !r.isActive } : r));
         } catch (error) {
             console.error("Toggle room status failed:", error);
@@ -222,38 +197,44 @@ export default function RoomBookingPage() {
         }
     };
 
-    // --- 4. Render Preparation ---
+    // --- Render Preparation ---
     const confirmedBookings = bookings.filter(b => b.status === 'confirmed');
     const activeRooms = rooms.filter(r => r.isActive);
 
-    // --- 5. Render ---
     if (loading) {
         return (
-            <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 gap-3">
-                <div className="animate-spin h-10 w-10 border-4 border-gray-300 border-t-[#0095F6] rounded-full"></div>
-                <span className="text-gray-500 font-medium animate-pulse">Checking Permission...</span>
+            <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 gap-4">
+                <div className="animate-spin h-10 w-10 border-4 border-gray-200 border-t-[#0095F6] rounded-full"></div>
+                <span className="text-gray-400 text-xs font-bold animate-pulse tracking-widest uppercase">Loading Workspace...</span>
             </div>
         );
     }
 
     return (
-        <main className="min-h-screen bg-slate-50 flex flex-col font-sans h-screen">
+        <main className="min-h-screen bg-gray-50 flex flex-col font-sans h-screen overflow-hidden">
             <Navbar
                 currentView={currentView}
                 onViewChange={handleViewChange}
-                currentUser={currentUser} // ✅ Pass currentUser
+                currentUser={currentUser}
             />
 
-            <div className="flex-1 overflow-hidden flex flex-col">
+            <div className="flex-1 overflow-hidden flex flex-col relative">
                 {currentView === "calendar" ? (
-                    <CalendarView rooms={activeRooms} bookings={confirmedBookings} />
+                    // Calendar View
+                    <CalendarView
+                        rooms={rooms}
+                        bookings={confirmedBookings}
+                    />
                 ) : currentView === "listing" ? (
+                    // Listing View (Booking Flow)
                     <ListingView
                         rooms={activeRooms}
                         bookings={confirmedBookings}
                         onBookingConfirmed={handleBookingConfirmed}
+                        currentUser={currentUser} // ✅ ส่ง currentUser ไปใช้ล็อกชื่อใน Modal
                     />
                 ) : (
+                    // Admin View
                     <AdminView
                         bookings={bookings}
                         rooms={rooms}
@@ -261,7 +242,8 @@ export default function RoomBookingPage() {
                         onReject={handleRejectBooking}
                         onAddRoom={handleAddRoom}
                         onToggleRoomStatus={handleToggleRoomStatus}
-                        onDeleteRoom={handleDeleteRoom} // ✅ ส่ง prop ลงไป
+                        onDeleteRoom={handleDeleteRoom}
+                        availableAmenities={amenitiesList}
                     />
                 )}
             </div>
