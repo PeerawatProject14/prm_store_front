@@ -215,7 +215,7 @@ const CreateBookingModal = ({
                     attendees: parseInt(attendees),
                     // ⭐ แก้ไข: ใช้ชื่อจริงจาก State แทน Mock
                     bookedBy: currentUserName || "Unknown",
-                    purpose: bookingChunks.length > 1 ? `${purpose} (Part)` : purpose,
+                    purpose: bookingChunks.length > 1 ? `${purpose}` : purpose,
                     status: "confirmed",
                     cost: 0,
                 };

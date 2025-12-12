@@ -16,6 +16,26 @@ const RoomCard = ({ room, upcomingBookings, onBookClick }) => {
 
     const color = getRoomColor(room.id);
 
+    // ✅ เพิ่ม Logic กรองเฉพาะรายการที่ยังไม่หมดเวลา (Future & Ongoing)
+    const filteredUpcomingBookings = upcomingBookings
+        .filter((booking) => {
+            if (!booking.date || !booking.endTime) return false;
+
+            // สร้าง Date Object ของเวลาจบการจอง
+            // หมายเหตุ: ต้องมั่นใจว่า format date เป็น "YYYY-MM-DD" และ endTime เป็น "HH:mm"
+            const bookingEndDateTime = new Date(`${booking.date}T${booking.endTime}`);
+            const now = new Date();
+
+            // คืนค่า true เฉพาะถ้ายัังไม่ถึงเวลาจบ (endTime > now)
+            return bookingEndDateTime > now;
+        })
+        .sort((a, b) => {
+            // เรียงลำดับจาก ใกล้ที่สุด -> ไกลที่สุด
+            const dateA = new Date(`${a.date}T${a.startTime}`);
+            const dateB = new Date(`${b.date}T${b.startTime}`);
+            return dateA - dateB;
+        });
+
     return (
         <div className={`
             group 
@@ -89,7 +109,7 @@ const RoomCard = ({ room, upcomingBookings, onBookClick }) => {
                     {/* ✅ Scrollable List Container */}
                     <div className="
                         space-y-2 
-                        max-h-[110px] /* สูงประมาณ 2 รายการ */
+                        max-h-[110px] 
                         overflow-y-auto 
                         pr-1 
                         /* Custom Scrollbar Styles */
@@ -99,9 +119,9 @@ const RoomCard = ({ room, upcomingBookings, onBookClick }) => {
                         [&::-webkit-scrollbar-thumb]:rounded-full
                         hover:[&::-webkit-scrollbar-thumb]:bg-gray-300
                     ">
-                        {upcomingBookings.length > 0 ? (
-                            // ✅ เอา .slice(0, 2) ออก เพื่อให้แสดงครบทุกรายการ
-                            upcomingBookings.map((booking) => (
+                        {/* ✅ ใช้ filteredUpcomingBookings แทน upcomingBookings เดิม */}
+                        {filteredUpcomingBookings.length > 0 ? (
+                            filteredUpcomingBookings.map((booking) => (
                                 <div key={booking.id} className="flex items-start gap-3 p-2 rounded-lg hover:bg-gray-50 transition-colors border border-transparent hover:border-gray-100 group/booking">
                                     {/* Date Box */}
                                     <div className="flex flex-col items-center justify-center bg-gray-50 border border-gray-100 rounded-md w-10 h-10 shrink-0 group-hover/booking:bg-white group-hover/booking:shadow-sm transition-all">
