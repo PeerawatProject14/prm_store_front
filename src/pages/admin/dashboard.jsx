@@ -4,6 +4,7 @@ import Link from "next/link";
 import UserTable from "@/components/admin/UserTable";
 import Settings from "@/components/admin/Settings";
 import { HiChevronLeft, HiUsers, HiCog6Tooth } from "react-icons/hi2";
+// ✅ Import API calls
 import {
   fetchAllUsers,
   fetchAllRoles,
@@ -12,6 +13,8 @@ import {
   updateStatusApi,
   updateRoleApi,
   deleteUserApi,
+  fetchModules,
+  updateUserPermissionsApi 
 } from "@/services/api";
 
 export default function AdminDashboardPage() {
@@ -20,8 +23,10 @@ export default function AdminDashboardPage() {
 
   const [users, setUsers] = useState([]);
   const [roles, setRoles] = useState([]);
+  const [modules, setModules] = useState([]);
   const [currentUserId, setCurrentUserId] = useState(null);
 
+  // ✅ Active Tab State (Default: 'users')
   const [activeTab, setActiveTab] = useState("users");
 
   const loadUsers = async () => {
@@ -33,6 +38,7 @@ export default function AdminDashboardPage() {
       roleId: user.role_id,
       roleName: user.role_name,
       statusCode: user.status_code,
+      permissions: user.permissions || []
     }));
     setUsers(formattedUsers);
   };
@@ -42,27 +48,36 @@ export default function AdminDashboardPage() {
     setRoles(data);
   };
 
+  const loadModules = async () => {
+    try {
+      const data = await fetchModules();
+      const formattedModules = data.map(m => ({
+        feature_id: m.module_id,
+        feature_name: m.name
+      }));
+      setModules(formattedModules);
+    } catch (error) {
+      console.error("Failed to load modules", error);
+    }
+  };
+
   useEffect(() => {
     const init = async () => {
       try {
         const [userData] = await Promise.all([
           fetchUserProfile().catch(() => null),
           loadUsers(),
-          loadRoles()
+          loadRoles(),
+          loadModules()
         ]);
 
         if (userData) {
-          console.log("✅ Logged in as:", userData);
-          // ใช้ .id หรือ .user_id ตามที่ API ส่งมา
           setCurrentUserId(userData.id || userData.user_id);
-        } else {
-          console.warn("⚠️ ไม่พบข้อมูลผู้ใช้ปัจจุบัน");
         }
 
       } catch (e) {
         console.error(e);
         const status = e?.response?.status;
-
         if (status === 403) {
           alert("คุณไม่มีสิทธิ์เข้าหน้านี้");
           router.replace("/dashboard");
@@ -78,53 +93,46 @@ export default function AdminDashboardPage() {
 
   // -------- Handlers --------
   const handleRoleChange = async (userId, newRoleId) => {
-    // ยังคงกันเหนียวไว้ เผื่อ Hack HTML
     if (currentUserId && String(userId) === String(currentUserId)) return;
-
     try {
       await updateRoleApi(userId, newRoleId);
-      const role = roles.find((r) => r.role_id === Number(newRoleId));
-      alert(`อัปเดต Role เป็น ${role ? role.role_name : newRoleId} สำเร็จ`);
       loadUsers();
     } catch (e) {
-      console.error(e);
       alert("เปลี่ยน Role ไม่สำเร็จ");
     }
   };
 
   const handleToggleStatus = async (id, currentStatusCode) => {
     if (currentUserId && String(id) === String(currentUserId)) return;
-
-    const newStatusCode =
-      currentStatusCode === "ACTIVE" ? "INACTIVE" : "ACTIVE";
-
+    const newStatusCode = currentStatusCode === "ACTIVE" ? "INACTIVE" : "ACTIVE";
     try {
       await updateStatusApi(id, newStatusCode);
-      alert(`เปลี่ยนสถานะเป็น ${newStatusCode} สำเร็จ`);
       loadUsers();
     } catch (e) {
-      console.error(e);
       alert("เปลี่ยนสถานะไม่สำเร็จ");
     }
   };
 
+  // ✅ Updated Approve Handler (Auto-grant ROOM_BOOKING)
   const handleApprove = async (id) => {
-    const targetUser = users.find((u) => u.id === id);
-    if (!targetUser) return;
-
-    const isOrgEmail = targetUser.email?.toLowerCase().endsWith("@psolutions.co.th");
-    let message = "ยืนยันการอนุมัติผู้ใช้นี้?";
-
-    if (!isOrgEmail) {
-      message = `⚠️ แจ้งเตือน: ผู้ใช้นี้ (${targetUser.email}) ไม่ได้ใช้อีเมลองค์กร (@psolutions.co.th)\n\nต้องการยืนยันการ approve หรือไม่?`;
-    }
-
-    if (!confirm(message)) return;
-
+    if (!confirm("ยืนยันการอนุมัติ?")) return;
     try {
+      // 1. Approve User (Active Status)
       await approveUserApi(id);
-      alert("อนุมัติผู้ใช้สำเร็จ!");
+
+      // 2. Auto-grant "Room Booking" Permission
+      // หา ID ของ Room Booking จาก modules ที่โหลดมา
+      const roomBookingModule = modules.find(m => 
+          m.feature_name === "Room Booking" || m.feature_name === "ROOM_BOOKING"
+      );
+
+      if (roomBookingModule) {
+          // ยิง API บันทึกสิทธิ์ (array [id])
+          await updateUserPermissionsApi(id, [roomBookingModule.feature_id]);
+      }
+
       loadUsers();
+      alert("อนุมัติผู้ใช้สำเร็จ (เพิ่มสิทธิ์ Room Booking อัตโนมัติ)");
     } catch (e) {
       console.error(e);
       alert("อนุมัติไม่สำเร็จ");
@@ -133,31 +141,33 @@ export default function AdminDashboardPage() {
 
   const handleDeleteUser = async (id) => {
     if (currentUserId && String(id) === String(currentUserId)) return;
-
     if (!confirm("ต้องการลบผู้ใช้งานคนนี้จริงหรือไม่?")) return;
     try {
       await deleteUserApi(id);
-      alert("ลบผู้ใช้งานสำเร็จ");
       loadUsers();
     } catch (e) {
-      console.error(e);
       alert("ลบผู้ใช้งานไม่สำเร็จ");
     }
   };
 
-  if (loading) {
-    return (
-      <main className="min-h-screen bg-[#FAFAFA] flex flex-col items-center justify-center gap-3">
-        <div className="animate-spin h-8 w-8 border-2 border-gray-300 border-t-[#0095F6] rounded-full"></div>
-        <span className="text-gray-400 font-medium text-sm">Loading Admin Panel...</span>
-      </main>
-    );
-  }
+  const handleUpdatePermissions = async (userId, selectedFeatureIds) => {
+    try {
+      await updateUserPermissionsApi(userId, selectedFeatureIds);
+      alert("อัปเดตสิทธิ์การใช้งานเรียบร้อย");
+      loadUsers();
+    } catch (e) {
+      console.error(e);
+      alert("อัปเดตสิทธิ์ไม่สำเร็จ");
+    }
+  };
 
+  if (loading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+
+  // Title Logic
   const title = activeTab === "users" ? "User Management" : "System Settings";
-  const subtitle = activeTab === "users"
-    ? "จัดการสิทธิ์และสถานะผู้ใช้งานในระบบ"
-    : "เปิด/ปิดการใช้งานโมดูลหลัก เช่น Hot Issue และ Room Booking";
+  const subtitle = activeTab === "users" 
+    ? "จัดการสิทธิ์และสถานะผู้ใช้งานในระบบ" 
+    : "ตั้งค่าการเปิด/ปิด Feature ต่างๆ ของระบบ";
 
   return (
     <main className="min-h-screen bg-[#FAFAFA] font-sans">
@@ -170,6 +180,7 @@ export default function AdminDashboardPage() {
           </div>
 
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            {/* ✅ Tab Switcher (Users / Settings) */}
             <div className="bg-white p-1 rounded-xl border border-gray-200 flex shadow-sm">
               <button
                 type="button"
@@ -202,7 +213,7 @@ export default function AdminDashboardPage() {
               className="flex items-center justify-center gap-1 text-sm font-semibold px-4 py-2.5 rounded-xl bg-[#EFEFEF] text-gray-900 hover:bg-gray-200 transition"
             >
               <HiChevronLeft className="text-lg" />
-              กลับสู่หน้าแรก
+              กลับหน้าหลัก
             </Link>
           </div>
         </header>
@@ -212,11 +223,13 @@ export default function AdminDashboardPage() {
             <UserTable
               users={users}
               roles={roles}
-              currentUserId={currentUserId} // ✅ เพิ่มบรรทัดนี้ เพื่อส่ง ID ไปให้ Table
+              availableFeatures={modules}
+              currentUserId={currentUserId}
               onRoleChange={handleRoleChange}
               onToggleStatus={handleToggleStatus}
-              onApprove={handleApprove}
+              onApprove={handleApprove} // ✅ ใช้ handleApprove ใหม่ที่มี auto-permission
               onDeleteUser={handleDeleteUser}
+              onUpdatePermissions={handleUpdatePermissions}
             />
           ) : (
             <Settings />

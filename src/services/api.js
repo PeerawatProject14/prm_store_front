@@ -25,7 +25,6 @@ const REDIRECT_LOCK_KEY = "__auth_redirect_lock__";
 const LOGIN_PATHS = ["/auth/login", "/login"];
 
 // ✅ public endpoint ที่ต้องยิงได้แม้ไม่มี token
-// (เพิ่มแบบไม่ใส่ / เผื่อ axios ส่งมาแบบนั้น)
 const PUBLIC_PATHS = [
   "/auth/login",
   "/auth/register",
@@ -210,17 +209,8 @@ export default api;
 // ==========================================
 
 export const fetchUserProfile = async () => {
-  if (typeof window !== "undefined") {
-    const userStr = localStorage.getItem("user");
-    if (userStr) {
-      try {
-        return JSON.parse(userStr);
-      } catch (err) {
-        console.error("Error parsing user from localStorage", err);
-      }
-    }
-  }
-
+  // ✅ แก้ไข: ลบการเช็ค LocalStorage ออก เพื่อให้ดึงข้อมูลใหม่จาก Server เสมอ
+  // (แก้ปัญหา Email ไม่ขึ้น หรือข้อมูลไม่อัปเดต)
   const res = await api.get("/auth/me");
   return res.data;
 };
@@ -300,6 +290,22 @@ export const updateRoleApi = async (userId, roleId) => {
   return response.data;
 };
 
+// ✅ เพิ่ม function บันทึกสิทธิ์ (Permissions)
+export const updateUserPermissionsApi = async (userId, featureIds) => {
+  // featureIds คือ array ของ module_id เช่น [1, 2]
+  const response = await api.put(`${ADMIN_USER_PATH}/${userId}/permissions`, {
+    featureIds,
+  });
+  return response.data;
+};
+
+export const resetPasswordApi = async (userId, newPassword) => {
+  const response = await api.patch(`${ADMIN_USER_PATH}/${userId}/password`, {
+    newPassword: newPassword,
+  });
+  return response.data;
+};
+
 export const deleteUserApi = async (userId) => {
   const response = await api.delete(`${ADMIN_USER_PATH}/${userId}`);
   return response.data;
@@ -327,6 +333,13 @@ export const isModuleEnabled = async (code) => {
   const modules = await fetchModules();
   const mod = modules.find((m) => m.code === code);
   return !!mod && !!mod.is_enabled;
+};
+
+// ✅ เพิ่ม function ดึงสิทธิ์ของตัวเอง (My Permissions)
+export const fetchMyPermissions = async () => {
+    // API นี้จะ return array ของ module code ที่เรามีสิทธิ์ เช่น ['HOT_ISSUE', 'ROOM_BOOKING']
+    const res = await api.get("/admin/my-permissions");
+    return res.data;
 };
 
 // ==========================================
@@ -383,17 +396,38 @@ export const uploadImage = async (file) => {
   const formData = new FormData();
   formData.append("file", file);
 
-  // ใช้ instance 'api' ที่มี interceptor จัดการ token ให้แล้ว
-  // ยิงไปที่ /upload ของ Backend (ตามที่เราตั้งใน server.js)
   const response = await api.post("/upload", formData, {
     headers: {
       "Content-Type": "multipart/form-data",
     },
   });
 
-  return response.data; // คาดหวัง { success: true, filepath: '/uploads/...' }
+  return response.data;
 };
 
+export const fetchDepartments = async () => {
+    try {
+        const res = await api.get("/user/departments");
+        return res.data;
+    } catch (error) {
+        return [];
+    }
+};
+
+// อัปเดต Profile (ส่ง field ใหม่ไปด้วย)
+export const updateProfileApi = async (data) => {
+    const res = await api.patch("/user/profile", data); 
+    return res.data;
+};
+
+// เปลี่ยนรหัสผ่านตัวเอง
+export const changeMyPasswordApi = async (currentPassword, newPassword) => {
+  const res = await api.patch("/user/profile/password", {
+    currentPassword,
+    newPassword
+  });
+  return res.data;
+};
 export const fetchAmenities = async () => {
   const res = await api.get("/amenities");
   return res.data;

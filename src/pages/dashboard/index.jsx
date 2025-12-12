@@ -3,52 +3,69 @@
 import { useEffect, useState } from "react";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import FeatureCard from "@/components/dashboard/FeatureCard";
-import LogoutButton from "@/components/dashboard/LogoutButton"; // ✅ กลับมาใช้ LogoutButton เดิม
-import { fetchModules } from "@/services/api";
+import LogoutButton from "@/components/dashboard/LogoutButton";
+// ✅ Import function ใหม่ fetchMyPermissions (ต้องไปเพิ่มใน api.js)
+import { fetchModules, fetchMyPermissions } from "@/services/api";
 
 export default function Dashboard() {
   const [modules, setModules] = useState([]);
-  const [loadingModules, setLoadingModules] = useState(true);
+  const [myPermissions, setMyPermissions] = useState([]); // ✅ เก็บสิทธิ์ของตัวเอง
+  const [loading, setLoading] = useState(true);
 
-  // โหลดสถานะ HOT_ISSUE / ROOM_BOOKING จาก backend
   useEffect(() => {
-    const loadModules = async () => {
+    const init = async () => {
       try {
-        const data = await fetchModules(); // GET /admin/modules
-        setModules(data || []);
+        // โหลดพร้อมกัน 2 อย่าง: 
+        // 1. Module Setting (Global on/off) 
+        // 2. Permission ของเราเอง (My Permissions)
+        const [modulesData, permissionsData] = await Promise.all([
+            fetchModules().catch(() => []),
+            fetchMyPermissions().catch(() => [])
+        ]);
+
+        setModules(modulesData || []);
+        setMyPermissions(permissionsData || []); // Array ของ code เช่น ['HOT_ISSUE']
       } catch (e) {
-        console.error("โหลด module settings ไม่สำเร็จ:", e);
+        console.error("Dashboard data load failed:", e);
       } finally {
-        setLoadingModules(false);
+        setLoading(false);
       }
     };
-    loadModules();
+    init();
   }, []);
 
-  const getModuleByCode = (code) =>
-    modules.find((m) => m.code === code) || null;
+  const getModuleByCode = (code) => modules.find((m) => m.code === code) || null;
 
-  const hotIssueModule = getModuleByCode("HOT_ISSUE");
-  const roomBookingModule = getModuleByCode("ROOM_BOOKING");
+  // Function เช็คว่า User เข้าถึงได้ไหม
+  // เงื่อนไข: 
+  // 1. Module ต้องเปิด (is_enabled = true)
+  // 2. User ต้องมีสิทธิ์ (อยู่ใน myPermissions) หรือเป็น Admin (อาจจะเช็ค Role เพิ่มถ้าต้องการ)
+  const canAccess = (moduleCode) => {
+    const mod = getModuleByCode(moduleCode);
+    if (!mod) return false;
+    
+    const isGlobalEnabled = mod.is_enabled;
+    const userHasPermission = myPermissions.includes(moduleCode);
+    
+    return isGlobalEnabled && userHasPermission;
+  };
 
-  const hotIssueEnabled = !!hotIssueModule?.is_enabled;
-  const roomBookingEnabled = !!roomBookingModule?.is_enabled;
+  const hotIssueEnabled = canAccess("HOT_ISSUE");
+  const roomBookingEnabled = canAccess("ROOM_BOOKING");
+
+  // สถานะ Global (เพื่อเอาไว้โชว์ว่าปิดปรับปรุง ถ้า Global ปิด)
+  const isGlobalHotIssueActive = getModuleByCode("HOT_ISSUE")?.is_enabled;
+  const isGlobalRoomBookingActive = getModuleByCode("ROOM_BOOKING")?.is_enabled;
 
   return (
-    // พื้นหลังสีเทาอ่อนสไตล์ IG (#FAFAFA)
     <main className="min-h-screen bg-[#FAFAFA]">
-      
-      {/* ใช้ LogoutButton เดิมที่มีอยู่แล้ว */}
       <div className="flex justify-end pt-6 px-6">
         <LogoutButton />
       </div>
 
       <div className="max-w-4xl mx-auto pb-20 pt-4">
-        
-        {/* Header (Logo + Title) */}
         <DashboardHeader />
 
-        {/* Feature Cards Grid */}
         <div className="grid gap-6 md:grid-cols-2 px-6">
           
           {/* 1. Hot Issue Card */}
@@ -56,49 +73,44 @@ export default function Dashboard() {
             title="Hot Issue"
             description="ระบบรายงานและติดตามปัญหาเร่งด่วน แจ้งซ่อม ร้องเรียน"
             statusLabel={
-              loadingModules
+              loading
                 ? "Loading..."
-                : hotIssueEnabled
-                ? "Active"
-                : "Inactive"
+                : !isGlobalHotIssueActive 
+                    ? "Maintenance" // ถ้าปิด Global บอกปิดปรับปรุง
+                    : hotIssueEnabled 
+                        ? "Active" 
+                        : "No Permission" // ถ้า Global เปิด แต่เราไม่มีสิทธิ์
             }
             statusBgClass={
-              loadingModules
-                ? "bg-gray-100"
-                : hotIssueEnabled
-                ? "bg-green-50" // พื้นหลังเขียวอ่อน
-                : "bg-red-50"
+              loading ? "bg-gray-100" : (hotIssueEnabled ? "bg-green-50" : "bg-red-50")
             }
             statusTextClass={
-              loadingModules
-                ? "text-gray-400"
-                : hotIssueEnabled
-                ? "text-[#34C759]" // เขียว iOS
-                : "text-[#ED4956]" // แดง IG
+              loading ? "text-gray-400" : (hotIssueEnabled ? "text-[#34C759]" : "text-[#ED4956]")
             }
             icon={<span>🔥</span>}
             iconBgClass={
               hotIssueEnabled
-                // Gradient สไตล์ IG Story (ม่วง-ชมพู-ส้ม)
                 ? "bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-500"
                 : "bg-gray-300"
             }
             buttonLabel={
-              loadingModules
+              loading
                 ? "Checking..."
-                : hotIssueEnabled
-                ? "เข้าใช้งาน"
-                : "ปิดปรับปรุง"
+                : !isGlobalHotIssueActive 
+                    ? "ปิดปรับปรุง"
+                    : hotIssueEnabled 
+                        ? "เข้าใช้งาน" 
+                        : "ไม่มีสิทธิ์เข้าถึง"
             }
             buttonBgClass={
-              loadingModules
+              loading
                 ? "bg-gray-300 cursor-wait"
                 : hotIssueEnabled
-                ? "bg-[#0095F6] hover:bg-[#1877F2]" // ฟ้า IG
+                ? "bg-[#0095F6] hover:bg-[#1877F2]"
                 : "bg-gray-300 cursor-not-allowed text-gray-500"
             }
             href={hotIssueEnabled ? "/hotissue" : undefined}
-            disabled={!hotIssueEnabled || loadingModules}
+            disabled={!hotIssueEnabled || loading}
           />
 
           {/* 2. Room Booking Card */}
@@ -106,53 +118,47 @@ export default function Dashboard() {
             title="Room Booking"
             description="ระบบบริหารจัดการและจองห้องประชุมออนไลน์"
             statusLabel={
-              loadingModules
+              loading
                 ? "Loading..."
-                : roomBookingEnabled
-                ? "Active"
-                : "Inactive"
+                : !isGlobalRoomBookingActive
+                    ? "Maintenance"
+                    : roomBookingEnabled
+                        ? "Active"
+                        : "No Permission"
             }
             statusBgClass={
-              loadingModules
-                ? "bg-gray-100"
-                : roomBookingEnabled
-                ? "bg-green-50"
-                : "bg-red-50"
+              loading ? "bg-gray-100" : (roomBookingEnabled ? "bg-green-50" : "bg-red-50")
             }
             statusTextClass={
-              loadingModules
-                ? "text-gray-400"
-                : roomBookingEnabled
-                ? "text-[#34C759]"
-                : "text-[#ED4956]"
+              loading ? "text-gray-400" : (roomBookingEnabled ? "text-[#34C759]" : "text-[#ED4956]")
             }
             icon={<span>📅</span>}
             iconBgClass={
               roomBookingEnabled
-                // Gradient ฟ้า-น้ำเงิน (Messenger style)
                 ? "bg-gradient-to-br from-cyan-400 to-blue-600"
                 : "bg-gray-300"
             }
             buttonLabel={
-              loadingModules
+              loading
                 ? "Checking..."
-                : roomBookingEnabled
-                ? "เข้าใช้งาน"
-                : "ปิดปรับปรุง"
+                : !isGlobalRoomBookingActive
+                    ? "ปิดปรับปรุง"
+                    : roomBookingEnabled
+                        ? "เข้าใช้งาน"
+                        : "ไม่มีสิทธิ์เข้าถึง"
             }
             buttonBgClass={
-              loadingModules
+              loading
                 ? "bg-gray-300 cursor-wait"
                 : roomBookingEnabled
-                ? "bg-[#0095F6] hover:bg-[#1877F2]" // ฟ้า IG
+                ? "bg-[#0095F6] hover:bg-[#1877F2]"
                 : "bg-gray-300 cursor-not-allowed text-gray-500"
             }
             href={roomBookingEnabled ? "/roombooking" : undefined}
-            disabled={!roomBookingEnabled || loadingModules}
+            disabled={!roomBookingEnabled || loading}
           />
         </div>
         
-        {/* Footer Text เล็กๆ สไตล์ App */}
         <div className="mt-12 text-center">
             <p className="text-xs text-gray-400 font-medium">© 2024 Piramid Solution</p>
         </div>

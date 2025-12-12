@@ -39,8 +39,9 @@ const Navbar = ({ currentView, onViewChange, currentUser }) => {
         setIsMenuOpen(false);
     };
 
-    const role = currentUser?.role_name || currentUser?.role || "";
-    const isAdmin = role.toLowerCase() === 'admin';
+    // ✅ แก้ไขจุดที่ทำให้หน้าขาว: แปลงเป็น String ก่อนเสมอ กัน Error
+    const role = currentUser?.role_name || currentUser?.role;
+    const isAdmin = String(role || "").toLowerCase() === 'admin';
 
     return (
         // ✅ ธีมขาว-ดำ Minimal (ใช้ text-slate-700 เป็นหลัก)
@@ -49,7 +50,6 @@ const Navbar = ({ currentView, onViewChange, currentUser }) => {
 
                 {/* --- Left Section: Title Only (ลบตัว R ออก) --- */}
                 <div className="flex items-center gap-3">
-                    {/* ลบส่วนโลโก้ตัว R ออกไปเลย */}
                     <div className="flex flex-col">
                         <h1 className="text-lg md:text-xl font-bold leading-tight text-slate-800">
                             Room Booking

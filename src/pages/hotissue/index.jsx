@@ -16,6 +16,8 @@ import {
   getHotIssueCases,
   getHotIssueDetailStats,
   isModuleEnabled,
+  fetchMyPermissions, // ✅ Import เพิ่ม
+  fetchUserProfile    // ✅ Import เพิ่ม
 } from "@/services/api";
 
 import {
@@ -57,7 +59,7 @@ export default function HotIssuePage() {
   const [viewMode, setViewMode] = useState("WEEKLY");
 
   // =======================================================
-  // Load Data
+  // Load Data (Cases & Stats)
   // =======================================================
   const loadData = async () => {
     try {
@@ -79,27 +81,62 @@ export default function HotIssuePage() {
     }
   };
 
+  // =======================================================
+  // ✅ Check Permissions & Module Status
+  // =======================================================
   useEffect(() => {
     const checkAccess = async () => {
       try {
-        const enabled = await isModuleEnabled("HOT_ISSUE");
-        if (!enabled) {
+        // ดึงข้อมูล 3 ส่วนพร้อมกัน:
+        // 1. สถานะ Module (Global)
+        // 2. ข้อมูล User (เพื่อเช็ค Admin)
+        // 3. สิทธิ์รายบุคคล (My Permissions)
+        const [moduleEnabled, userData, myPermissions] = await Promise.all([
+            isModuleEnabled("HOT_ISSUE").catch(() => false),
+            fetchUserProfile().catch(() => null),
+            fetchMyPermissions().catch(() => [])
+        ]);
+
+        // 1. เช็คว่า Module เปิดใช้งานหรือไม่ (Global Switch)
+        if (!moduleEnabled) {
           alert("ฟีเจอร์ Hot Issue ถูกปิดการใช้งานโดยผู้ดูแลระบบ");
           router.replace("/dashboard");
           return;
         }
+
+        // 2. เช็คสิทธิ์ผู้ใช้งาน (User Permission)
+        if (userData) {
+            const role = userData.role_name || userData.role || "";
+            const isAdmin = String(role).toLowerCase() === 'admin';
+            const hasAccess = (myPermissions || []).includes('HOT_ISSUE');
+
+            // ถ้าไม่ใช่ Admin และ ไม่มีสิทธิ์ HOT_ISSUE -> ดีดออก
+            if (!isAdmin && !hasAccess) {
+                alert("คุณไม่มีสิทธิ์เข้าถึง Hot Issue");
+                router.replace("/dashboard");
+                return;
+            }
+        } else {
+            // ถ้าดึง User ไม่ได้ (Token หมดอายุ) -> ดีดไป Login
+            router.replace("/");
+            return;
+        }
+
+        // ถ้าผ่านทุกด่าน
         setModuleAllowed(true);
+
       } catch (err) {
-        console.error("ตรวจสอบสถานะ Hot Issue ล้มเหลว:", err);
+        console.error("ตรวจสอบสิทธิ์ล้มเหลว:", err);
         router.replace("/dashboard");
-        return;
       } finally {
         setCheckingModule(false);
       }
     };
+    
     checkAccess();
   }, [router]);
 
+  // โหลดข้อมูลเคสเมื่อผ่านการตรวจสอบสิทธิ์แล้ว
   useEffect(() => {
     if (moduleAllowed) loadData();
   }, [moduleAllowed]);
@@ -245,9 +282,21 @@ export default function HotIssuePage() {
     setShowHistoryModal(true);
   };
 
-  if (checkingModule) return <div className="min-h-screen flex items-center justify-center">Checking...</div>;
+  if (checkingModule) return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 gap-4">
+          <div className="animate-spin h-10 w-10 border-4 border-gray-200 border-t-[#0095F6] rounded-full"></div>
+          <span className="text-gray-400 text-xs font-bold animate-pulse tracking-widest uppercase">Checking Access...</span>
+      </div>
+  );
+  
   if (!moduleAllowed) return null;
-  if (loading && !stats) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+  
+  if (loading && !stats) return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 gap-4">
+          <div className="animate-spin h-10 w-10 border-4 border-gray-200 border-t-[#0095F6] rounded-full"></div>
+          <span className="text-gray-400 text-xs font-bold animate-pulse tracking-widest uppercase">Loading Data...</span>
+      </div>
+  );
 
   return (
     <div className="min-h-screen bg-[#FAFAFA] font-sans">
