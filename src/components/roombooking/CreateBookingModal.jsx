@@ -19,14 +19,67 @@ const CreateBookingModal = ({
     onClose,
     room,
     existingBookings,
-    onConfirm,
-    currentUser = { name: "Admin Test", role: "Admin" } // ✅ รับ Prop ข้อมูล user (Mock ไว้ก่อน)
+    onConfirm
 }) => {
+    // --------------------------------------------------------
+    // ⭐ ส่วนที่ 1: Logic ดึงชื่อผู้ใช้จริงจาก Token
+    // --------------------------------------------------------
+    const [currentUserName, setCurrentUserName] = useState("");
+
+    // ฟังก์ชันถอดรหัส Token
+    const parseJwt = (token) => {
+        try {
+            const base64Url = token.split('.')[1];
+            const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+            const jsonPayload = decodeURIComponent(
+                atob(base64)
+                    .split('')
+                    .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+                    .join('')
+            );
+            return JSON.parse(jsonPayload);
+        } catch (e) {
+            return null;
+        }
+    };
+
+    // useEffect: ดึงชื่อเมื่อเปิด Modal
+    useEffect(() => {
+        if (isOpen) {
+            try {
+                // ดึง Token จาก Storage
+                const token = localStorage.getItem("token") || localStorage.getItem("auth_token");
+
+                if (token) {
+                    const u = parseJwt(token);
+                    if (u) {
+                        // พยายามหา field ที่เป็นชื่อ (รองรับหลาย format)
+                        const fName = u.first_name || u.firstname || u.firstName || u.name || u.username || u.sub || "";
+                        const lName = u.last_name || u.lastname || u.lastName || "";
+
+                        const fullName = lName ? `${fName} ${lName}` : fName;
+                        setCurrentUserName(fullName || "Unknown User");
+                    } else {
+                        setCurrentUserName("Invalid Token Data");
+                    }
+                } else {
+                    setCurrentUserName("No Token Found");
+                }
+            } catch (err) {
+                console.error("Error reading user data:", err);
+                setCurrentUserName("Error Loading User");
+            }
+        }
+    }, [isOpen]);
+
+    // --------------------------------------------------------
+    // End User Logic
+    // --------------------------------------------------------
+
     const [date, setDate] = useState("");
     const [startTime, setStartTime] = useState("");
     const [endTime, setEndTime] = useState("");
     const [attendees, setAttendees] = useState("");
-    // const [name, setName] = useState(""); // ❌ ไม่ต้องใช้ State เปลี่ยนชื่อแล้ว
     const [purpose, setPurpose] = useState("");
     const [error, setError] = useState("");
     const [bookingChunks, setBookingChunks] = useState([]);
@@ -38,7 +91,6 @@ const CreateBookingModal = ({
             setStartTime("");
             setEndTime("");
             setAttendees("");
-            // setName(""); // ❌ ไม่ต้อง Reset ชื่อ
             setPurpose("");
             setError("");
             setBookingChunks([]);
@@ -161,7 +213,8 @@ const CreateBookingModal = ({
                     startTime: chunk.start,
                     endTime: chunk.end,
                     attendees: parseInt(attendees),
-                    bookedBy: currentUser?.name || "Unknown", // ✅ ใช้ชื่อจาก currentUser
+                    // ⭐ แก้ไข: ใช้ชื่อจริงจาก State แทน Mock
+                    bookedBy: currentUserName || "Unknown",
                     purpose: bookingChunks.length > 1 ? `${purpose} (Part)` : purpose,
                     status: "confirmed",
                     cost: 0,
@@ -186,11 +239,9 @@ const CreateBookingModal = ({
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-            {/* ✅ Wrapper Layout Fix */}
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl flex flex-col md:flex-row max-h-[90vh] overflow-y-auto md:overflow-hidden border border-gray-100">
 
                 {/* --- Left Side (Room Info & Schedule) --- */}
-                {/* ✅ Added scrollbarStyles to parent container */}
                 <div className={`w-full md:w-[35%] bg-gray-50 border-b md:border-b-0 md:border-r border-gray-200 p-6 flex flex-col shrink-0 md:overflow-y-auto ${scrollbarStyles}`}>
 
                     {/* Header Mobile Only */}
@@ -252,7 +303,6 @@ const CreateBookingModal = ({
                         </div>
 
                         {date && (
-                            // ✅ Scrollbar Applied Here specifically for the list
                             <div className={`
                                 max-h-[125px] md:max-h-none md:flex-1 
                                 overflow-y-auto 
@@ -278,7 +328,6 @@ const CreateBookingModal = ({
                 </div>
 
                 {/* --- Right Side (Form) --- */}
-                {/* ✅ Added scrollbarStyles to parent container */}
                 <div className={`w-full md:w-[65%] p-6 md:p-8 flex flex-col h-full bg-white md:overflow-y-auto ${scrollbarStyles}`}>
 
                     {/* Desktop Close Button */}
@@ -352,9 +401,10 @@ const CreateBookingModal = ({
                                     Booked By <span className="text-red-500">*</span>
                                 </label>
                                 <div className="relative group">
+                                    {/* ⭐ แก้ไข: Input Field แสดงค่าจาก currentUserName */}
                                     <input
                                         type="text"
-                                        value={currentUser?.name || "Unknown"}
+                                        value={currentUserName || "Loading..."}
                                         disabled
                                         className="w-full pl-10 pr-4 py-2.5 bg-gray-100 border border-gray-200 rounded-lg text-sm text-gray-500 cursor-not-allowed select-none"
                                     />
