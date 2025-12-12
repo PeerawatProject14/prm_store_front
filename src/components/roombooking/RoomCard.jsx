@@ -12,25 +12,26 @@ import {
     HiUser
 } from "react-icons/hi2";
 
-const RoomCard = ({ room, upcomingBookings, onBookClick }) => {
+const RoomCard = ({
+    room,
+    upcomingBookings,
+    onBookClick,
+    onBookingItemClick // [NEW] รับฟังก์ชันเมื่อคลิกที่รายการจอง
+}) => {
 
     const color = getRoomColor(room.id);
 
-    // ✅ เพิ่ม Logic กรองเฉพาะรายการที่ยังไม่หมดเวลา (Future & Ongoing)
+    // ✅ Logic กรองเฉพาะรายการที่ยังไม่หมดเวลา (Future & Ongoing)
     const filteredUpcomingBookings = upcomingBookings
         .filter((booking) => {
             if (!booking.date || !booking.endTime) return false;
 
-            // สร้าง Date Object ของเวลาจบการจอง
-            // หมายเหตุ: ต้องมั่นใจว่า format date เป็น "YYYY-MM-DD" และ endTime เป็น "HH:mm"
             const bookingEndDateTime = new Date(`${booking.date}T${booking.endTime}`);
             const now = new Date();
 
-            // คืนค่า true เฉพาะถ้ายัังไม่ถึงเวลาจบ (endTime > now)
             return bookingEndDateTime > now;
         })
         .sort((a, b) => {
-            // เรียงลำดับจาก ใกล้ที่สุด -> ไกลที่สุด
             const dateA = new Date(`${a.date}T${a.startTime}`);
             const dateB = new Date(`${b.date}T${b.startTime}`);
             return dateA - dateB;
@@ -91,11 +92,11 @@ const RoomCard = ({ room, upcomingBookings, onBookClick }) => {
                 <div className="flex items-center gap-3 mb-5">
                     <div className="flex items-center gap-1.5 px-2 py-1 bg-gray-50 rounded-md border border-gray-100">
                         <HiUsers className="text-gray-400 w-3.5 h-3.5" />
-                        <span className="text-[11px] font-semibold text-gray-600">Max {room.capacity}</span>
+                        <span className="text-sm font-semibold text-gray-600">Max {room.capacity}</span>
                     </div>
                     <div className="flex items-center gap-1.5 px-2 py-1 bg-gray-50 rounded-md border border-gray-100">
                         <HiMapPin className="text-gray-400 w-3.5 h-3.5" />
-                        <span className="text-[11px] font-semibold text-gray-600">{room.floor || "-"}</span>
+                        <span className="text-sm font-semibold text-gray-600">{room.floor || "-"}</span>
                     </div>
                 </div>
 
@@ -106,23 +107,35 @@ const RoomCard = ({ room, upcomingBookings, onBookClick }) => {
                         Upcoming Bookings
                     </h4>
 
-                    {/* ✅ Scrollable List Container */}
+                    {/* Scrollable List Container */}
                     <div className="
                         space-y-2 
                         max-h-[110px] 
                         overflow-y-auto 
                         pr-1 
-                        /* Custom Scrollbar Styles */
                         [&::-webkit-scrollbar]:w-1.5
                         [&::-webkit-scrollbar-track]:bg-transparent
                         [&::-webkit-scrollbar-thumb]:bg-gray-200
                         [&::-webkit-scrollbar-thumb]:rounded-full
                         hover:[&::-webkit-scrollbar-thumb]:bg-gray-300
                     ">
-                        {/* ✅ ใช้ filteredUpcomingBookings แทน upcomingBookings เดิม */}
                         {filteredUpcomingBookings.length > 0 ? (
                             filteredUpcomingBookings.map((booking) => (
-                                <div key={booking.id} className="flex items-start gap-3 p-2 rounded-lg hover:bg-gray-50 transition-colors border border-transparent hover:border-gray-100 group/booking">
+                                <div
+                                    key={booking.id}
+                                    // [NEW] เพิ่ม onClick และ cursor-pointer เพื่อให้คลิกได้
+                                    onClick={(e) => {
+                                        e.stopPropagation(); // ป้องกันไม่ให้ bubble ไปโดน event อื่น (ถ้ามี)
+                                        if (onBookingItemClick) onBookingItemClick(booking);
+                                    }}
+                                    className="
+                                        flex items-start gap-3 p-2 rounded-lg 
+                                        bg-white hover:bg-blue-50 
+                                        border border-transparent hover:border-blue-100 
+                                        transition-all cursor-pointer 
+                                        group/booking
+                                    "
+                                >
                                     {/* Date Box */}
                                     <div className="flex flex-col items-center justify-center bg-gray-50 border border-gray-100 rounded-md w-10 h-10 shrink-0 group-hover/booking:bg-white group-hover/booking:shadow-sm transition-all">
                                         <span className="text-[8px] font-bold text-gray-400 uppercase leading-none mb-0.5">
