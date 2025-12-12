@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useRouter } from "next/router"; // หรือ "next/navigation" ถ้าใช้ App Router รุ่นใหม่
+import { useRouter } from "next/router"; // ⚠️ ถ้าใช้ App Router ให้เปลี่ยนเป็น "next/navigation"
 import Navbar from "@/components/roombooking/Navbar";
 import CalendarView from "@/components/roombooking/CalendarView";
 import ListingView from "@/components/roombooking/ListingView";
@@ -31,7 +31,7 @@ export default function RoomBookingPage() {
     const [checkingAccess, setCheckingAccess] = useState(true);
     const [accessGranted, setAccessGranted] = useState(false);
 
-    // ✅ State สำหรับเก็บสถานะ Admin
+    // ✅ State สำหรับเก็บสถานะ Admin (เอาไว้โชว์ปุ่มเฉยๆ แต่ไม่ได้ใช้เป็นใบผ่านทางแล้ว)
     const [isAdminUser, setIsAdminUser] = useState(false);
 
     const [currentView, setCurrentView] = useState("calendar");
@@ -40,7 +40,9 @@ export default function RoomBookingPage() {
     const [currentUser, setCurrentUser] = useState(null);
     const [amenitiesList, setAmenitiesList] = useState([]);
 
-    // --- Check Access & Permissions First ---
+    // =======================================================
+    // 🛡️ 1. Check Access & Permissions First (Strict Mode)
+    // =======================================================
     useEffect(() => {
         const checkAccess = async () => {
             try {
@@ -51,51 +53,44 @@ export default function RoomBookingPage() {
                     fetchMyPermissions().catch(() => [])
                 ]);
 
-                // 1. Debug: ดูค่าที่ได้จาก API
-                console.log("DEBUG: User Data:", userData);
-
-                // 2. Check Global Module Switch
+                // 1. Check Global Module Switch
                 if (!moduleEnabled) {
                     alert("ฟีเจอร์ Room Booking ถูกปิดการใช้งานโดยผู้ดูแลระบบ");
                     router.replace("/dashboard");
                     return;
                 }
 
-                // 3. Check User Authentication & Permissions
+                // 2. Check User Authentication & Permissions
                 if (userData) {
-                    // --- 🛠️ Logic เช็ค Admin (รองรับ Object) ---
+                    // --- 🛠️ Logic เช็ค Admin (เพื่อใช้เปิดฟีเจอร์ Admin View เท่านั้น) ---
                     let targetRoleName = "";
-
                     if (userData.role && typeof userData.role === 'object') {
-                        // กรณี role เป็น object { role_id: 1, role_name: 'admin' }
                         targetRoleName = userData.role.role_name || "";
                     } else if (userData.role_name) {
                         targetRoleName = userData.role_name;
                     } else if (userData.role) {
                         targetRoleName = userData.role;
                     }
-
-                    // แปลงเป็นตัวเล็กและตัดช่องว่าง
                     const roleCheck = String(targetRoleName).toLowerCase().trim();
-                    console.log("DEBUG FIXED: Role String =", roleCheck);
-
-                    // เช็คสิทธิ์ Admin
                     const isAdmin = ['admin', 'administrator', 'superadmin', 'super admin'].includes(roleCheck);
-                    console.log("DEBUG: Is Admin Final Result =", isAdmin);
 
-                    // เช็คสิทธิ์ Permission ทั่วไป
+                    // --- 🔐 Strict Permission Check ---
+                    // ต้องมี Permission 'ROOM_BOOKING' เท่านั้นถึงจะเข้าได้
                     const hasAccess = (myPermissions || []).includes('ROOM_BOOKING');
 
-                    // ถ้าไม่ใช่ Admin และไม่มีสิทธิ์ -> Redirect
-                    if (!isAdmin && !hasAccess) {
-                        alert("⚠️ คุณไม่มีสิทธิ์เข้าใช้งานระบบจองห้องประชุม");
+                    // 🚨 กฎเหล็ก: ถ้าไม่มีสิทธิ์ -> ดีดออกทันที (ไม่สนว่าเป็น Admin หรือไม่)
+                    if (!hasAccess) {
+                        alert("⚠️ คุณไม่มีสิทธิ์เข้าใช้งานระบบจองห้องประชุม (Access Denied)");
                         router.replace("/dashboard");
                         return;
                     }
 
-                    // Access Granted
+                    // ✅ Access Granted: ถ้าผ่านด่าน Permission มาได้
                     setCurrentUser(userData);
-                    setIsAdminUser(isAdmin); // ✅ บันทึกค่า Admin ลง State
+                    
+                    // ยังคง set สถานะ Admin ไว้ เพื่อให้เขามองเห็นปุ่ม "Admin View" ข้างใน (ถ้าเขาเข้ามาได้แล้ว)
+                    setIsAdminUser(isAdmin); 
+                    
                     setAccessGranted(true);
                 } else {
                     router.replace("/");
@@ -112,7 +107,9 @@ export default function RoomBookingPage() {
         checkAccess();
     }, [router]);
 
-    // --- Fetch Data (Only after access is granted) ---
+    // =======================================================
+    // 📥 2. Fetch Data
+    // =======================================================
     const fetchData = async () => {
         try {
             setLoading(true);
@@ -124,7 +121,6 @@ export default function RoomBookingPage() {
 
             setAmenitiesList(amenitiesData || []);
 
-            // --- Transform Rooms ---
             const transformedRooms = roomsData.map(r => ({
                 id: r.room_id,
                 name: r.room_name,
@@ -136,7 +132,6 @@ export default function RoomBookingPage() {
                 isActive: ['active', 'AVAILABLE'].includes(r.room_status) || ['active', 'AVAILABLE'].includes(r.room_status_code)
             }));
 
-            // --- Transform Bookings ---
             const transformedBookings = bookingsData.map(b => ({
                 id: b.booking_id,
                 roomId: b.room_id,
@@ -144,10 +139,7 @@ export default function RoomBookingPage() {
                 startTime: b.start_time?.substring(0, 5),
                 endTime: b.end_time?.substring(0, 5),
                 bookedBy: b.first_name ? `${b.first_name} ${b.last_name}` : "Unknown User",
-
-                // ✅ ต้องมี userId เพื่อเอาไปเช็คว่าเป็นเจ้าของ Booking หรือไม่
                 userId: b.user_id,
-
                 purpose: b.purpose,
                 attendees: b.attendees || 0,
                 status: b.status,
@@ -169,11 +161,13 @@ export default function RoomBookingPage() {
         }
     }, [accessGranted]);
 
-    // --- Handlers ---
+    // =======================================================
+    // 🎮 3. Handlers
+    // =======================================================
 
     const handleViewChange = (view) => {
         if (view === "admin") {
-            // ✅ ใช้ State isAdminUser ที่เช็คมาแล้ว
+            // ยังคงต้องเช็คว่าเป็น Admin จริงไหม ก่อนให้กดเข้าหน้า Admin View
             if (!isAdminUser) {
                 alert("Access Denied: เฉพาะ Admin เท่านั้น");
                 return;
@@ -182,18 +176,11 @@ export default function RoomBookingPage() {
         setCurrentView(view);
     };
 
-    // ✅ ฟังก์ชันสำหรับยกเลิกการจอง (ใช้ได้ทั้ง User เจ้าของห้อง และ Admin)
     const handleCancelBooking = async (bookingId) => {
         if (!confirm("คุณต้องการยกเลิกการจองนี้ใช่หรือไม่?")) return;
-
         try {
-            // เรียก API เปลี่ยนสถานะเป็น cancelled
             await updateBookingStatus(bookingId, 'cancelled');
-
-            // อัปเดตหน้าจอทันที
-            setBookings(prev => prev.map(b =>
-                b.id === bookingId ? { ...b, status: 'cancelled' } : b
-            ));
+            setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, status: 'cancelled' } : b));
             alert("ยกเลิกการจองเรียบร้อยแล้ว");
         } catch (error) {
             console.error("Cancel booking failed:", error);
@@ -221,7 +208,7 @@ export default function RoomBookingPage() {
         }
     };
 
-    // Admin: Approve
+    // --- Admin Actions ---
     const handleApproveBooking = async (bookingId) => {
         try {
             await updateBookingStatus(bookingId, 'confirmed');
@@ -232,7 +219,6 @@ export default function RoomBookingPage() {
         }
     };
 
-    // Admin: Reject
     const handleRejectBooking = async (bookingId) => {
         try {
             await updateBookingStatus(bookingId, 'cancelled');
@@ -262,6 +248,7 @@ export default function RoomBookingPage() {
     };
 
     const handleDeleteRoom = async (roomId) => {
+        if (!confirm("ยืนยันการลบห้องประชุม?")) return;
         try {
             await deleteRoom(roomId);
             setRooms(prev => prev.filter(r => r.id !== roomId));
@@ -284,7 +271,9 @@ export default function RoomBookingPage() {
         }
     };
 
-    // --- Render ---
+    // =======================================================
+    // 🎨 4. Render
+    // =======================================================
 
     if (checkingAccess) {
         return (
@@ -315,7 +304,6 @@ export default function RoomBookingPage() {
                 currentView={currentView}
                 onViewChange={handleViewChange}
                 currentUser={currentUser}
-                // ✅ ส่งสถานะ Admin ไปให้ Navbar (เพื่อโชว์/ซ่อนปุ่ม Admin)
                 isAdmin={isAdminUser}
             />
 
@@ -325,9 +313,7 @@ export default function RoomBookingPage() {
                         rooms={rooms}
                         bookings={confirmedBookings}
                         onViewChange={handleViewChange}
-                        currentUser={currentUser} // ✅ อย่าลืมส่ง currentUser
-
-                        // ✅ [ADDED] เพิ่ม 2 บรรทัดนี้ครับ
+                        currentUser={currentUser}
                         isAdmin={isAdminUser}
                         onCancel={handleCancelBooking}
                     />
@@ -337,10 +323,8 @@ export default function RoomBookingPage() {
                         bookings={confirmedBookings}
                         onBookingConfirmed={handleBookingConfirmed}
                         currentUser={currentUser}
-
-                        // ✅ ส่ง Props สำหรับฟีเจอร์ยกเลิก
-                        isAdmin={isAdminUser}             // Admin ยกเลิกได้ทุกคน
-                        onCancel={handleCancelBooking}    // ฟังก์ชันยกเลิก
+                        isAdmin={isAdminUser}
+                        onCancel={handleCancelBooking}
                     />
                 ) : (
                     <AdminView
