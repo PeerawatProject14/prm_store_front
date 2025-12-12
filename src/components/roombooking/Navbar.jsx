@@ -2,10 +2,10 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-// ✅ Import ไอคอน Minimal แบบเส้น (Outline)
 import { HiOutlineCalendar, HiOutlineClipboardDocumentList, HiOutlineShieldCheck, HiArrowLeft, HiBars3, HiXMark } from "react-icons/hi2";
 
-const Navbar = ({ currentView, onViewChange, currentUser }) => {
+// ✅ [UPDATE] รับ isAdmin เข้ามาเป็น Props
+const Navbar = ({ currentView, onViewChange, currentUser, isAdmin }) => {
     const router = useRouter();
     const [currentTime, setCurrentTime] = useState("");
     const [currentDate, setCurrentDate] = useState("");
@@ -39,16 +39,15 @@ const Navbar = ({ currentView, onViewChange, currentUser }) => {
         setIsMenuOpen(false);
     };
 
-    // ✅ แก้ไขจุดที่ทำให้หน้าขาว: แปลงเป็น String ก่อนเสมอ กัน Error
-    const role = currentUser?.role_name || currentUser?.role;
-    const isAdmin = String(role || "").toLowerCase() === 'admin';
+    // ❌ [REMOVE] ลบโค้ดคำนวณ role เดิมออก เพราะเราได้รับค่า isAdmin มาแล้ว
+    // const role = currentUser?.role_name || currentUser?.role;
+    // const isAdmin = String(role || "").toLowerCase() === 'admin';
 
     return (
-        // ✅ ธีมขาว-ดำ Minimal (ใช้ text-slate-700 เป็นหลัก)
         <nav className="sticky top-0 z-50 bg-white border-b border-slate-200 shadow-sm text-slate-700">
             <div className="flex items-center justify-between px-4 py-3 md:px-6">
 
-                {/* --- Left Section: Title Only (ลบตัว R ออก) --- */}
+                {/* --- Left Section --- */}
                 <div className="flex items-center gap-3">
                     <div className="flex flex-col">
                         <h1 className="text-lg md:text-xl font-bold leading-tight text-slate-800">
@@ -72,7 +71,7 @@ const Navbar = ({ currentView, onViewChange, currentUser }) => {
 
                     <div className="h-8 w-px bg-slate-200 mx-2"></div>
 
-                    {/* Menu Buttons Group (Minimal Icons) */}
+                    {/* Menu Buttons Group */}
                     <div className="flex items-center gap-1 p-0.5">
                         <button
                             onClick={() => onViewChange("calendar")}
@@ -81,7 +80,6 @@ const Navbar = ({ currentView, onViewChange, currentUser }) => {
                                 : "text-slate-600 hover:bg-slate-50 hover:text-black"
                                 }`}
                         >
-                            {/* ✅ ไอคอน Calendar */}
                             <HiOutlineCalendar className={`h-5 w-5 ${currentView === "calendar" ? "text-black" : "text-slate-500 group-hover:text-black"}`} />
                             <span>Calendar</span>
                         </button>
@@ -93,11 +91,11 @@ const Navbar = ({ currentView, onViewChange, currentUser }) => {
                                 : "text-slate-600 hover:bg-slate-50 hover:text-black"
                                 }`}
                         >
-                            {/* ✅ ไอคอน Booking */}
                             <HiOutlineClipboardDocumentList className={`h-5 w-5 ${currentView === "listing" ? "text-black" : "text-slate-500 group-hover:text-black"}`} />
                             <span>Booking</span>
                         </button>
 
+                        {/* ✅ [CHECK] ใช้ตัวแปร isAdmin ที่รับมาจาก Props */}
                         {isAdmin && (
                             <button
                                 onClick={() => onViewChange("admin")}
@@ -106,7 +104,6 @@ const Navbar = ({ currentView, onViewChange, currentUser }) => {
                                     : "text-slate-600 hover:bg-slate-50 hover:text-black"
                                     }`}
                             >
-                                {/* ✅ ไอคอน Admin */}
                                 <HiOutlineShieldCheck className={`h-5 w-5 ${currentView === "admin" ? "text-black" : "text-slate-500 group-hover:text-black"}`} />
                                 <span>Admin</span>
                             </button>
@@ -166,6 +163,7 @@ const Navbar = ({ currentView, onViewChange, currentUser }) => {
                             <HiOutlineClipboardDocumentList className="h-5 w-5" /> Booking
                         </button>
 
+                        {/* ✅ [CHECK] ใช้ isAdmin ใน Mobile Menu ด้วย */}
                         {isAdmin && (
                             <button
                                 onClick={() => handleNavClick("admin")}

@@ -10,8 +10,10 @@ const CalendarView = ({
     bookings,
     onBookingConfirmed,
     currentUser,
-    onBookingCancelled,
-    onViewChange // ✅ 1. รับฟังก์ชันเปลี่ยนหน้าเข้ามา
+    // onBookingCancelled, // ❌ เปลี่ยนชื่อให้ตรงมาตรฐานเดียวกับหน้าอื่น
+    onCancel,           // ✅ ใช้ชื่อนี้ให้เหมือน ListingView
+    onViewChange,
+    isAdmin             // ✅ [ADDED] รับค่า Admin
 }) => {
     const [selectedBooking, setSelectedBooking] = useState(null);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
@@ -29,21 +31,16 @@ const CalendarView = ({
         setSelectedBooking(null);
     };
 
-    // Helper: Find room by ID (Robust String Comparison)
     const getRoom = (roomId) => {
         if (!roomId) return null;
         return rooms.find((r) => String(r.id) === String(roomId));
     };
 
-    // Handler: Click "Book This Room" from Detail Modal
     const handleBookRoom = (roomId) => {
         const room = getRoom(roomId);
-
         if (room) {
             setRoomToBook(room);
             setIsDetailModalOpen(false);
-
-            // Small delay to ensure state updates smoothly
             setTimeout(() => {
                 setIsCreateModalOpen(true);
             }, 100);
@@ -60,10 +57,11 @@ const CalendarView = ({
         setIsCreateModalOpen(false);
     };
 
-    // Handler Wrapper สำหรับการยกเลิกการจอง
-    const handleCancelWrapper = (booking) => {
-        if (onBookingCancelled) {
-            onBookingCancelled(booking);
+    // ✅ ปรับปรุง Handler ให้เรียก onCancel ตัวใหม่
+    const handleCancelWrapper = (bookingId) => { // รับ bookingId หรือ object ก็ได้แล้วแต่ design ของ parent
+        if (onCancel) {
+            // ส่ง ID ของ booking ที่เลือกอยู่ไปลบ
+            onCancel(selectedBooking?.id || selectedBooking?.booking_id);
         }
         handleCloseDetailModal();
     };
@@ -73,16 +71,14 @@ const CalendarView = ({
     return (
         <div
             className="flex-1 flex flex-col min-h-0 overflow-y-auto"
-            style={{ background: 'linear-gradient(to bottom, #f9fafb, #f3f4f6)' }} // ปรับสีพื้นหลังให้อ่อนลงเล็กน้อยเพื่อให้เข้ากับธีม Clean
+            style={{ background: 'linear-gradient(to bottom, #f9fafb, #f3f4f6)' }}
         >
-            {/* Timeline Container */}
             <div className="flex-1 min-h-100 p-4 md:p-6">
-
                 <WeeklyCalendar
                     rooms={rooms}
                     bookings={bookings}
                     onBookingClick={handleBookingClick}
-                    onViewChange={onViewChange} // ✅ 2. ส่งต่อไปยัง WeeklyCalendar เพื่อให้ปุ่มทำงาน
+                    onViewChange={onViewChange}
                 />
             </div>
 
@@ -95,11 +91,15 @@ const CalendarView = ({
                 roomImage={currentRoom?.image || currentRoom?.image_base64 || currentRoom?.image_url}
                 roomFloor={currentRoom?.floor}
                 currentUser={currentUser}
+
+                // ✅ ส่งค่าสำคัญไปให้ Modal
+                isAdmin={isAdmin}
                 onCancel={handleCancelWrapper}
+
                 onBook={() => handleBookRoom(selectedBooking?.roomId)}
             />
 
-            {/* Create Booking Modal (Highest Z-Index) */}
+            {/* Create Booking Modal */}
             {isCreateModalOpen && (
                 <div className="relative z-[9999]">
                     <CreateBookingModal

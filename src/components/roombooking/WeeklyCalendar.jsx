@@ -249,7 +249,13 @@ const TimelineCalendar = ({
 
             {/* Floating Action Button */}
             <button
-                onClick={() => onViewChange("listing")}
+                onClick={() => {
+                    if (typeof onViewChange === 'function') {
+                        onViewChange("listing");
+                    } else {
+                        console.warn("onViewChange prop is missing!");
+                    }
+                }}
                 className="absolute bottom-8 right-8 z-50 bg-[#0095F6] text-white p-4 rounded-full shadow-xl hover:bg-[#0085DE] hover:scale-105 active:scale-95 transition-all flex items-center justify-center"
             >
                 <HiOutlineClipboardDocumentList size={26} />

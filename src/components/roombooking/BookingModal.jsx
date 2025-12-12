@@ -23,7 +23,8 @@ const BookingModal = ({
     roomImage,
     roomFloor,
     currentUser,
-    onCancel
+    onCancel,
+    isAdmin // ✅ [ADDED] รับ prop นี้เพิ่ม เพื่อความชัวร์เรื่องสิทธิ์
 }) => {
     if (!isOpen || !booking) return null;
 
@@ -52,17 +53,17 @@ const BookingModal = ({
 
     const statusStyle = getStatusStyle(booking.status);
 
-    // เตรียมตัวแปร ID สำหรับตรวจสอบ (รองรับหลายรูปแบบชื่อตัวแปรเผื่อความชัวร์)
+    // เตรียมตัวแปร ID สำหรับตรวจสอบ
     const currentUserId = currentUser?.user_id || currentUser?.id || currentUser?.userId;
     const bookingOwnerId = booking.userId || booking.user_id;
 
-    // Logic ตรวจสอบสิทธิ์การ Cancel
+    // ✅ [UPDATED] Logic ตรวจสอบสิทธิ์การ Cancel (กระชับขึ้น)
+    // - ใช้ isAdmin ที่รับมาโดยตรง ไม่ต้องเช็ค role ซ้ำ
+    // - แปลง ID เป็น String เสมอก่อนเทียบ กันพลาด (เช่น '1' vs 1)
+    const isOwner = currentUserId && bookingOwnerId && String(currentUserId) === String(bookingOwnerId);
+
     const canCancel = booking.status?.toLowerCase() !== 'cancelled' && (
-        // 1. เป็น Admin
-        currentUser?.role === 'admin' ||
-        currentUser?.role_name === 'admin' ||
-        // 2. เป็นเจ้าของ Booking (เทียบ ID)
-        (currentUserId && bookingOwnerId && String(currentUserId) === String(bookingOwnerId))
+        isAdmin || isOwner
     );
 
     return (
@@ -121,7 +122,11 @@ const BookingModal = ({
                                 </div>
                                 <div>
                                     <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Booked By</label>
-                                    <div className="text-sm font-semibold text-gray-800">{booking.bookedBy}</div>
+                                    <div className="text-sm font-semibold text-gray-800">
+                                        {booking.bookedBy}
+                                        {/* Optional: แสดง (Me) ถ้าเป็นเราจอง */}
+                                        {isOwner && <span className="text-blue-500 ml-1">(Me)</span>}
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -159,6 +164,7 @@ const BookingModal = ({
                             </div>
 
                             <div className="flex items-center gap-3">
+                                {/* ปุ่ม Cancel */}
                                 {canCancel && (
                                     <button
                                         onClick={() => onCancel && onCancel(booking)}
