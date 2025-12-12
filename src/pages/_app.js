@@ -3,16 +3,16 @@ import "@/styles/globals.css";
 import { AuthProvider } from "@/context/AuthContext";
 import { useRouter } from "next/router";
 import { useEffect } from "react";
+import Head from "next/head"; // 1. เพิ่มบรรทัดนี้
 
 export default function App({ Component, pageProps }) {
   const router = useRouter();
 
+  // ... (ส่วน Logic useEffect ของคุณเหมือนเดิม ไม่ต้องแก้) ...
   useEffect(() => {
     if (!router.isReady) return;
-
     const publicRoutes = ["/auth/login", "/auth/register"];
-    const token =
-      localStorage.getItem("token") || localStorage.getItem("auth_token");
+    const token = localStorage.getItem("token") || localStorage.getItem("auth_token");
 
     if (!token && !publicRoutes.includes(router.pathname)) {
       if (router.pathname !== "/auth/login") {
@@ -20,10 +20,7 @@ export default function App({ Component, pageProps }) {
       }
     }
 
-    if (
-      token &&
-      (publicRoutes.includes(router.pathname) || router.pathname === "/")
-    ) {
+    if (token && (publicRoutes.includes(router.pathname) || router.pathname === "/")) {
       if (router.pathname !== "/dashboard") {
         router.replace("/dashboard");
       }
@@ -32,7 +29,11 @@ export default function App({ Component, pageProps }) {
 
   return (
     <AuthProvider>
-      {/* ✅ ใช้ฟอนต์ ig ทั้งเว็บ */}
+      <Head>
+        <title>Piramid Services</title>
+        <link rel="icon" href="/logo-2.png?v=2" />
+      </Head>
+
       <div className="font-ig">
         <Component {...pageProps} />
       </div>
