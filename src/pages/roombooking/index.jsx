@@ -34,7 +34,7 @@ export default function RoomBookingPage() {
     // ✅ State สำหรับเก็บสถานะ Admin (เอาไว้โชว์ปุ่มเฉยๆ แต่ไม่ได้ใช้เป็นใบผ่านทางแล้ว)
     const [isAdminUser, setIsAdminUser] = useState(false);
 
-    const [currentView, setCurrentView] = useState("calendar");
+    const [currentView, setCurrentView] = useState("listing");
     const [bookings, setBookings] = useState(initialBookings);
     const [rooms, setRooms] = useState(initialRooms);
     const [currentUser, setCurrentUser] = useState(null);
@@ -87,10 +87,10 @@ export default function RoomBookingPage() {
 
                     // ✅ Access Granted: ถ้าผ่านด่าน Permission มาได้
                     setCurrentUser(userData);
-                    
+
                     // ยังคง set สถานะ Admin ไว้ เพื่อให้เขามองเห็นปุ่ม "Admin View" ข้างใน (ถ้าเขาเข้ามาได้แล้ว)
-                    setIsAdminUser(isAdmin); 
-                    
+                    setIsAdminUser(isAdmin);
+
                     setAccessGranted(true);
                 } else {
                     router.replace("/");
