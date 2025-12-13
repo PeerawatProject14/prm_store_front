@@ -71,7 +71,7 @@ const CalendarView = ({
     return (
         <div
             className="flex-1 flex flex-col min-h-0 overflow-y-auto"
-            style={{ background: 'linear-gradient(to bottom, #f9fafb, #f3f4f6)' }}
+            style={{ background: 'linear-gradient(to bottom, #1f242b00, #2c4567)' }}
         >
             <div className="flex-1 min-h-100 p-4 md:p-6">
                 <WeeklyCalendar

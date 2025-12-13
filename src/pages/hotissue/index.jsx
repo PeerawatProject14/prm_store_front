@@ -299,7 +299,10 @@ export default function HotIssuePage() {
   );
 
   return (
-    <div className="min-h-screen bg-[#FAFAFA] font-sans">
+    <div className="min-h-screen bg-[#FAFAFA] font-sans" 
+     style={{ background: 'linear-gradient(to bottom, #1f242b00, #2c4567)' }}
+    >
+      
       <div className="w-full max-w-[95%] mx-auto px-4 py-6 md:px-8 md:py-10">
         <Header dateText={new Date().toLocaleDateString("th-TH", { year: "numeric", month: "long", day: "numeric" })} />
 

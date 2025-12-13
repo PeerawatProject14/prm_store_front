@@ -51,7 +51,8 @@ const ListingView = ({
     };
 
     return (
-        <div className="flex-1 flex flex-col min-h-0 overflow-y-auto bg-slate-50">
+        <div className="flex-1 flex flex-col min-h-0 overflow-y-auto bg-slate-50"
+        style={{ background: 'linear-gradient(to bottom, #1f242b00, #2c4567)' }}>
             <div className="max-w-7xl mx-auto px-6 py-10 w-full flex-1">
                 <div className="text-center mb-10">
                     <h2 className="text-2xl font-bold text-slate-800">Room Booking</h2>

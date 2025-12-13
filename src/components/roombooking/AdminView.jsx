@@ -99,7 +99,8 @@ const AdminView = ({
     };
 
     return (
-        <div className="flex-1 flex flex-col min-h-0 overflow-y-auto bg-gray-50 p-4 md:p-8 font-sans">
+        <div className="flex-1 flex flex-col min-h-0 overflow-y-auto bg-gray-50 p-4 md:p-8 font-sans"
+        style={{ background: 'linear-gradient(to bottom, #1f242b00, #2c4567)' }}>
             <div className="max-w-6xl mx-auto w-full">
 
                 {/* Header Section */}

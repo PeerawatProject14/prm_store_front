@@ -170,7 +170,8 @@ export default function AdminDashboardPage() {
     : "ตั้งค่าการเปิด/ปิด Feature ต่างๆ ของระบบ";
 
   return (
-    <main className="min-h-screen bg-[#FAFAFA] font-sans">
+    <main className="min-h-screen bg-[#FAFAFA] font-sans"
+    style={{ background: 'linear-gradient(to bottom, #1f242b00, #2c4567)' }}>
       <div className="w-full max-w-7xl mx-auto px-4 py-6 md:px-8 md:py-10">
 
         <header className="mb-8 flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">

@@ -1,5 +1,5 @@
 "use client";
-
+import Image from "next/image";
 import { useState } from "react";
 import Input from "@/components/auth/Input";
 import Button from "@/components/auth/Button";
@@ -73,10 +73,25 @@ export default function LoginForm() {
 
   return (
     <div className="bg-white border border-gray-200 shadow-sm rounded-lg p-10 w-full max-w-sm mx-auto">
-      <h1 className="text-3xl font-semibold text-center text-gray-800 mb-8 font-sans tracking-tight">
-        Sign in
-      </h1>
+      <section className="flex flex-col items-center mt-8 px-4">
+        <div className="p-[3px] rounded-full bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-500 mb-4">
+          <div className="p-[2px] rounded-full bg-white">
+              <Image
+                  src="/logo.png"
+                  alt="Logo"
+                  width={130}
+                  height={130}
+                  priority
+                  className="rounded-full object-cover border border-gray-100"
+              />
+          </div>
+        </div>
 
+        <h1 className="text-3xl font-semibold text-center text-gray-800 mb-8 font-sans tracking-tight">
+          Sign in
+        </h1>
+      </section>
+      
       {error && (
         <div className="mb-5 p-3 rounded bg-red-50 border border-red-100 text-red-600 text-sm text-center">
           {error}

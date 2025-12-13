@@ -24,7 +24,10 @@ export default function LoginPage() {
   }, []);
 
   return (
-    <div className="min-h-screen flex justify-center items-center bg-gray-100">
+    <div 
+      className="min-h-screen flex justify-center items-center" 
+      style={{ background: 'linear-gradient(to bottom, #1f242b00, #2c4567)' }}
+    >
       <LoginForm />
     </div>
   );

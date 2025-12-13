@@ -21,9 +21,9 @@ export default function DashboardHeader() {
         Piramid Solution Co.,Ltd
       </h1>
 
-      <p className="text-gray-500 mt-1 text-sm font-medium">
+      {/* <p className="text-gray-500 mt-1 text-sm font-medium">
         เลือกบริการที่คุณต้องการใช้งาน
-      </p>
+      </p> */}
     </section>
   );
 }

@@ -58,7 +58,9 @@ export default function Dashboard() {
   const isGlobalRoomBookingActive = getModuleByCode("ROOM_BOOKING")?.is_enabled;
 
   return (
-    <main className="min-h-screen bg-[#FAFAFA]">
+    <main className="min-h-screen bg-[#FAFAFA]"
+    style={{ background: 'linear-gradient(to bottom, #1f242b00, #2c4567)' }}
+    >
       <div className="flex justify-end pt-6 px-6">
         <LogoutButton />
       </div>
@@ -160,7 +162,7 @@ export default function Dashboard() {
         </div>
         
         <div className="mt-12 text-center">
-            <p className="text-xs text-gray-400 font-medium">© 2024 Piramid Solution</p>
+            <p className="text-xs text-gray-400 font-medium">© 2025 Piramid Solution</p>
         </div>
 
       </div>

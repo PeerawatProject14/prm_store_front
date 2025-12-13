@@ -47,6 +47,7 @@ export default function HeaderControls() {
                 <Link
                     href="/admin/dashboard" 
                     className="flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-lg bg-[#EFEFEF] text-gray-900 hover:bg-gray-200 transition duration-200 ease-in-out"
+                    style={{ boxShadow: '2px 5px 6px 2px rgba(0, 0, 0, 0.2)' }}
                 >
                     <HiCog6Tooth className="text-lg" />
                     <span>จัดการระบบ</span>
@@ -57,6 +58,7 @@ export default function HeaderControls() {
             <Link
                 href="/profile/profile"  // ✅ แก้เป็น /profile อย่างเดียว เพื่อวิ่งไปหาไฟล์ profile.jsx หรือ profile/index.jsx
                 className="flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-lg bg-[#EFEFEF] text-gray-900 hover:bg-gray-200 transition duration-200 ease-in-out"
+                style={{ boxShadow: '2px 5px 6px 2px rgba(0, 0, 0, 0.2)' }}
             >
                 <HiUserCircle className="text-lg" />
                 <span>ข้อมูลส่วนตัว</span>
@@ -66,6 +68,8 @@ export default function HeaderControls() {
             <button
                 onClick={handleLogout}
                 className="flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-lg bg-[#EFEFEF] text-[#ED4956] hover:bg-gray-200 transition duration-200 ease-in-out"
+                style={{ boxShadow: '2px 5px 6px 2px rgba(0, 0, 0, 0.2)' }}
+            
             >
                 <HiArrowRightOnRectangle className="text-lg" />
                 <span>ออกจากระบบ</span>

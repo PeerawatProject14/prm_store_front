@@ -103,7 +103,8 @@ export default function ProfilePage() {
     const currentDeptName = departments.find(d => d.department_id === user?.department_id)?.department_name || "-";
 
     return (
-        <div className="min-h-screen bg-[#FAFAFA] py-10 px-4 font-sans">
+        <div className="min-h-screen bg-[#FAFAFA] py-10 px-4 font-sans"
+        style={{ background: 'linear-gradient(to bottom, #1f242b00, #2c4567)' }}>
             <div className="max-w-4xl mx-auto">
                 
                 <div className="mb-6">
