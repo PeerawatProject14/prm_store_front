@@ -100,7 +100,7 @@ export default function Dashboard() {
                 ? "Checking..."
                 : !isGlobalHotIssueActive 
                     ? "ปิดปรับปรุง"
-                    : hotIssueEnabled 
+                    : hotIssueEnabled
                         ? "เข้าใช้งาน" 
                         : "ไม่มีสิทธิ์เข้าถึง"
             }

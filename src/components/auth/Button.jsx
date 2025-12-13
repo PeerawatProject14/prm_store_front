@@ -5,6 +5,7 @@ export default function Button({ text, full, ...props }) {
         full ? "w-full" : ""
       }`}
       {...props}
+      style={{ boxShadow: 'rgba(0, 0, 0, 0.2) 2px 5px 6px 2px' }}
     >
       {text}
     </button>

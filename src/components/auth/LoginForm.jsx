@@ -72,25 +72,27 @@ export default function LoginForm() {
   };
 
   return (
-    <div className="bg-white border border-gray-200 shadow-sm rounded-lg p-10 w-full max-w-sm mx-auto">
-      <section className="flex flex-col items-center mt-8 px-4">
-        <div className="p-[3px] rounded-full bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-500 mb-4">
-          <div className="p-[2px] rounded-full bg-white">
-              <Image
-                  src="/logo.png"
-                  alt="Logo"
-                  width={130}
-                  height={130}
-                  priority
-                  className="rounded-full object-cover border border-gray-100"
-              />
-          </div>
-        </div>
+    <div className="bg-white border border-gray-200 shadow-sm rounded-lg px-10 pt-20 pb-10 w-full max-w-sm mx-auto">
+      <div className="flex justify-center mb-6">
+        <Image
+          src="/Ai-Logo.png"
+          alt="Logo"
+          width={130}
+          height={130}
+          priority
+          className="object-contain"
+          style={{ 
+            width: '155px', 
+            marginTop: '-155px', 
+            position: 'absolute',
+            filter: 'drop-shadow(2px 5px 8px rgba(0, 0, 0, 0.72))'
+          }}
+        />
+      </div>
 
-        <h1 className="text-3xl font-semibold text-center text-gray-800 mb-8 font-sans tracking-tight">
-          Sign in
-        </h1>
-      </section>
+      <h1 className="text-3xl font-semibold text-center text-gray-800 mb-8 font-sans tracking-tight" >
+        Sign in
+      </h1>
       
       {error && (
         <div className="mb-5 p-3 rounded bg-red-50 border border-red-100 text-red-600 text-sm text-center">
@@ -140,6 +142,7 @@ export default function LoginForm() {
         <Link
           href="/auth/register"
           className="text-[#0095F6] font-semibold hover:text-blue-700"
+        
         >
           Sign up
         </Link>
