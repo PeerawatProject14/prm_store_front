@@ -54,7 +54,7 @@ const Navbar = ({ currentView, onViewChange, currentUser, isAdmin }) => {
                             Room Booking
                         </h1>
                         <span className="text-xs md:text-sm text-slate-500">
-                            Piramid Solution Co.,Ltd
+                            Piramid Solutions Co., Ltd
                         </span>
                     </div>
                 </div>

@@ -10,7 +10,7 @@ export default function Header({ dateText }) {
         <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
           Weekly Meeting Hot Issue Discussion
         </h1>
-        <p className="text-sm text-gray-500 font-medium mt-1">Piramid Solution Co.,Ltd</p>
+        <p className="text-sm text-gray-500 font-medium mt-1">Piramid Solutions Co., Ltd</p>
       </div>
 
       <div className="flex items-center gap-4">
